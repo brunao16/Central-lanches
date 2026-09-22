@@ -513,3 +513,58 @@ html.dark .small {
 html.dark .small:hover {
   background: #475569;
 }
+
+/* === SKELETON ANIMATION === */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* === BUTTON HOVER EFFECTS === */
+button { transition: all .15s ease; }
+button:active:not(:disabled) { transform: scale(.97); }
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .columns { grid-template-columns: 1fr !important; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; }
+  .payment { flex-direction: column !important; }
+  .stats { grid-template-columns: 1fr !important; }
+  .fieldgrid { grid-template-columns: 1fr !important; }
+  .nav { flex-wrap: wrap !important; gap: 4px !important; }
+  .nav a { font-size: 11px !important; padding: 6px 8px !important; }
+  header > div { flex-wrap: wrap !important; gap: 8px !important; }
+  main { padding: 8px !important; }
+  .panel { padding: 12px !important; }
+  .product { min-width: 120px !important; }
+}
+
+@media (max-width: 480px) {
+  .grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+  .product { min-width: 0 !important; padding: 8px !important; }
+  .product b { font-size: 13px !important; }
+}
+
+/* === FOCUS VISIBLE === */
+*:focus-visible { outline: 2px solid #d84416; outline-offset: 2px; }
+button:focus-visible { box-shadow: 0 0 0 3px rgba(216, 68, 22, .3); }
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* === KBD STYLE === */
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
+  background: #f1f5f9;
+  border: 1px solid #dce2e8;
+  border-radius: 4px;
+  margin-right: 6px;
+  min-width: 24px;
+  text-align: center;
+}

@@ -2,11 +2,16 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ToastProvider, useToast } from "@/components/ui/toast";
+import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
+import { Skeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { printComanda, printRecibo } from "@/lib/print";
 import {
   ShoppingBag, Utensils, Receipt, ChartNoAxesCombined,
   Plus, Camera, Download, FileText, Trash2, Edit, Search,
   Lock, Users, Building2, BarChart3, Send, Package, Bell,
+  Undo2, Printer,
 } from "lucide-react";
 
 type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
@@ -87,6 +92,16 @@ function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
 }
 
 export default function Home() {
+  return (
+    <ToastProvider>
+    <ConfirmProvider>
+      <HomeInner />
+    </ConfirmProvider>
+    </ToastProvider>
+  );
+}
+
+function HomeInner() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tab, setTab] = useState("caixa");
   const [data, setData] = useState<Data>({ products: [], sales: [], expenses: [], totals: { revenue: 0, costs: 0, count: 0 } });
@@ -121,6 +136,11 @@ export default function Home() {
   const [newUser, setNewUser] = useState({ username: "", password: "", name: "", role: "caixa" });
   const [showNewBranch, setShowNewBranch] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
+  const [undoSale, setUndoSale] = useState<any>(null);
+  const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const toastHook = useToast();
+  const confirmHook = useConfirm();
 
   const photoInput = useRef<HTMLInputElement>(null);
   const productPhotoInput = useRef<HTMLInputElement>(null);
@@ -155,6 +175,20 @@ export default function Home() {
     fetch("/api/records?action=branches").then(r => r.json()).then((d: any) => setBranches(d.branches || [])).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "F2") { e.preventDefault(); setTab("caixa"); }
+      if (e.key === "F3") { e.preventDefault(); setTab("lanches"); }
+      if (e.key === "F4") { e.preventDefault(); setTab("gastos"); }
+      if (e.key === "F5") { e.preventDefault(); setTab("gestao"); }
+      if (e.key === "F6") { e.preventDefault(); setTab("dashboard"); }
+      if (e.key === "Escape") { e.preventDefault(); setSaleNote(""); setTip(""); setDiscount(0); setCouponCode(""); setSplit(1); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   function toggleDark() {
     setDarkMode((d) => { const next = !d; localStorage.setItem("cl_dark", String(next)); document.documentElement.classList.toggle("dark", next); return next; });
   }
@@ -170,7 +204,8 @@ export default function Home() {
   async function run(fn: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(""); setSuccess("");
-    try { await fn(); await refresh(); } catch (e) { setError((e as Error).message); }
+    try { await fn(); await refresh(); toastHook.toast("success", "Ação realizada com sucesso!"); }
+    catch (e) { setError((e as Error).message); toastHook.toast("error", (e as Error).message); }
     finally { lock.current = false; setBusy(false); }
   }
 
@@ -244,8 +279,26 @@ export default function Home() {
   }
 
   async function deleteSale(id: string) {
-    if (!confirm("Excluir esta venda?")) return;
-    await run(async () => { await save({ action: "delete-sale", id }); setSuccess("Venda excluída."); });
+    const ok = await confirmHook.confirm({ title: "Excluir venda?", message: "Tem certeza que deseja excluir esta venda? Você pode desfazer em 5 segundos.", confirmText: "Excluir", variant: "danger" });
+    if (!ok) return;
+    const sale = data.sales.find((s: any) => s.id === id);
+    setUndoSale(sale);
+    toastHook.toast("warning", "Venda excluída. Desfazer em 5s?", 5000);
+    if (undoTimeout) clearTimeout(undoTimeout);
+    const t = setTimeout(() => { setUndoSale(null); }, 5000);
+    setUndoTimeout(t);
+    await run(async () => { await save({ action: "delete-sale", id }); });
+  }
+
+  async function undoDelete() {
+    if (!undoSale) return;
+    if (undoTimeout) clearTimeout(undoTimeout);
+    await run(async () => {
+      const items = JSON.parse(undoSale.lines);
+      await save({ action: "sale", id: undoSale.id, items: items.map((it: any) => ({ id: it.id, qty: it.qty })), payment: undoSale.payment, received: undoSale.received, expectedTotal: undoSale.total, branch: undoSale.branch, employee: undoSale.employee, note: undoSale.note });
+    });
+    setUndoSale(null);
+    toastHook.toast("success", "Venda restaurada!");
   }
 
   async function toggleProduct(p: Product) {
@@ -313,6 +366,12 @@ export default function Home() {
 
         {error && <div className="error" role="alert">{error} <button className="small" onClick={() => void refresh()} disabled={busy}>Recarregar</button></div>}
         {success && <div className="success" role="status">{success}</div>}
+        {undoSale && (
+          <div style={{ background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 8, padding: "8px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ flex: 1, fontSize: 13 }}>Venda excluída</span>
+            <button onClick={undoDelete} style={{ background: "#f59e0b", color: "white", border: "none", padding: "4px 12px", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Desfazer</button>
+          </div>
+        )}
         {loading && <p role="status" className="notice">Atualizando…</p>}
 
         {/* === CAIXA === */}
@@ -566,6 +625,7 @@ export default function Home() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <b>{brl(s.total)}</b>
+                  <button className="small" onClick={() => printRecibo(s)} title="Imprimir recibo" style={{ padding: "4px 8px" }}><Printer size={14} /></button>
                   <button className="small" onClick={() => void deleteSale(s.id)} style={{ color: "#c32626", padding: "4px 8px" }}><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -614,6 +674,43 @@ export default function Home() {
                 <h2>Senhas padrão</h2>
                 <p className="hint">Admin: admin / admin123</p>
                 <p className="hint">Altere a senha do admin após o primeiro login!</p>
+              </section>
+            </div>
+            <div className="stats" style={{ marginTop: 16 }}>
+              <section className="panel">
+                <h2>Backup / Restore</h2>
+                <p className="hint" style={{ marginBottom: 12 }}>Exporte todos os dados ou importe de um backup anterior.</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="small" onClick={async () => {
+                    const r = await fetch("/api/records?action=records&from=2000-01-01&to=2099-12-31&limit=99999");
+                    const d = await r.json();
+                    const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = `central-lanches-backup-${today()}.json`; a.click();
+                    URL.revokeObjectURL(url);
+                    toastHook.toast("success", "Backup exportado!");
+                  }}><Download size={14} /> Exportar JSON</button>
+                  <label className="small" style={{ cursor: "pointer" }}>
+                    <input type="file" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+                      const file = e.target.files?.[0]; if (!file) return;
+                      const text = await file.text();
+                      try { const d = JSON.parse(text); await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "import", data: d }) }); toastHook.toast("success", "Backup restaurado!"); await refresh(); }
+                      catch { toastHook.toast("error", "Arquivo inválido."); }
+                    }} />
+                    <Package size={14} /> Importar JSON
+                  </label>
+                </div>
+              </section>
+              <section className="panel">
+                <h2>Atalhos de Teclado</h2>
+                <div style={{ fontSize: 13, lineHeight: 2 }}>
+                  <div><kbd>F2</kbd> Caixa</div>
+                  <div><kbd>F3</kbd> Lanches</div>
+                  <div><kbd>F4</kbd> Gastos</div>
+                  <div><kbd>F5</kbd> Gestão</div>
+                  <div><kbd>F6</kbd> Dashboard</div>
+                  <div><kbd>Esc</kbd> Limpar campos</div>
+                </div>
               </section>
             </div>
           </TabsContent>

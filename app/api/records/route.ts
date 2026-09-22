@@ -366,6 +366,14 @@ export async function POST(req: Request) {
       return json({ ok: true });
     }
 
+    if (b.action === "import" && b.data) {
+      const d = b.data;
+      if (d.products) for (const p of d.products) { const ex = await db.select().from(products).where(eq(products.id, p.id)).get(); if (!ex) await db.insert(products).values(p); }
+      if (d.sales) for (const s of d.sales) { const ex = await db.select().from(sales).where(eq(sales.id, s.id)).get(); if (!ex) await db.insert(sales).values(s); }
+      if (d.expenses) for (const e of d.expenses) { const ex = await db.select().from(expenses).where(eq(expenses.id, e.id)).get(); if (!ex) await db.insert(expenses).values(e); }
+      return json({ ok: true, imported: true });
+    }
+
     return json({ error: "Operação inválida." }, 400);
   } catch (e) {
     console.error(e);
