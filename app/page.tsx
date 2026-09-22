@@ -8,6 +8,8 @@ import { Skeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { printComanda, printRecibo } from "@/lib/print";
 import Dashboard from "@/components/dashboard";
+import Onboarding from "@/components/onboarding";
+import { PlanBadge, canAccess } from "@/components/plan-gate";
 import {
   ShoppingBag, Utensils, Receipt, ChartNoAxesCombined,
   Plus, Camera, Download, FileText, Trash2, Edit, Search,
@@ -18,7 +20,7 @@ import {
 type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
 type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
 type Expense = { id: string; day: string; merchant: string; amount: number; receipt: string | null; created: string; branch: string };
-type User = { id: string; username: string; name: string; role: string; branch: string };
+type User = { id: string; username: string; name: string; role: string; branch: string; plan: string; email: string };
 type Branch = { id: string; name: string };
 type Data = { products: Product[]; sales: Sale[]; expenses: Expense[]; totals: { revenue: number; costs: number; count: number } };
 
@@ -325,9 +327,12 @@ function HomeInner() {
     setPhoto(f);
   }
 
-  function logout() { localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); document.cookie = "cl_token=; path=/; max-age=0"; setCurrentUser(null); }
+  function logout() { localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); localStorage.removeItem("cl_onboarded"); document.cookie = "cl_token=; path=/; max-age=0"; setCurrentUser(null); }
 
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
+
+  const isOnboarded = typeof window !== "undefined" ? localStorage.getItem("cl_onboarded") === "1" : true;
+  if (!isOnboarded) return <Onboarding onComplete={() => window.location.reload()} />;
 
   const categories = Array.from(new Set(data.products.map((p) => p.category)));
 
@@ -345,30 +350,35 @@ function HomeInner() {
             <button className={`sidebar-item ${tab === "lanches" ? "active" : ""}`} onClick={() => setTab("lanches")}><Utensils size={16} /> Lanches</button>
             <button className={`sidebar-item ${tab === "gastos" ? "active" : ""}`} onClick={() => setTab("gastos")}><Receipt size={16} /> Gastos</button>
             <button className={`sidebar-item ${tab === "gestao" ? "active" : ""}`} onClick={() => setTab("gestao")}><ChartNoAxesCombined size={16} /> Gestão</button>
-            <button className={`sidebar-item ${tab === "dashboard" ? "active" : ""}`} onClick={() => setTab("dashboard")}><BarChart3 size={16} /> Dashboard</button>
+            {canAccess(currentUser.plan, "dashboard") && <button className={`sidebar-item ${tab === "dashboard" ? "active" : ""}`} onClick={() => setTab("dashboard")}><BarChart3 size={16} /> Dashboard</button>}
           </div>
           <div className="sidebar-section">
             <div className="sidebar-section-title">Operação</div>
             <a href="/pedido" target="_blank" className="sidebar-item">🍔 Cardápio</a>
-            <a href="/cozinha" target="_blank" className="sidebar-item">👨‍🍳 Cozinha</a>
-            <a href="/cozinha-avancada" target="_blank" className="sidebar-item">🔥 Cozinha+</a>
-            <a href="/mesas" className="sidebar-item">🍽️ Mesas</a>
-            <a href="/delivery" className="sidebar-item">🛵 Delivery</a>
+            {canAccess(currentUser.plan, "cozinha") && <a href="/cozinha" target="_blank" className="sidebar-item">👨‍🍳 Cozinha</a>}
+            {canAccess(currentUser.plan, "cozinha") && <a href="/cozinha-avancada" target="_blank" className="sidebar-item">🔥 Cozinha+</a>}
+            {canAccess(currentUser.plan, "mesas") && <a href="/mesas" className="sidebar-item">🍽️ Mesas</a>}
+            {canAccess(currentUser.plan, "delivery") && <a href="/delivery" className="sidebar-item">🛵 Delivery</a>}
           </div>
           <div className="sidebar-section">
             <div className="sidebar-section-title">Gestão</div>
-            <a href="/fidelidade" className="sidebar-item">⭐ Fidelidade</a>
-            <a href="/ponto" target="_blank" className="sidebar-item">⏰ Ponto</a>
-            <a href="/nfe" className="sidebar-item">📄 NF-e</a>
+            {canAccess(currentUser.plan, "fidelidade") && <a href="/fidelidade" className="sidebar-item">⭐ Fidelidade</a>}
+            {canAccess(currentUser.plan, "ponto") && <a href="/ponto" target="_blank" className="sidebar-item">⏰ Ponto</a>}
+            {canAccess(currentUser.plan, "nfe") && <a href="/nfe" className="sidebar-item">📄 NF-e</a>}
           </div>
           {currentUser.role === "admin" && (
             <div className="sidebar-section">
               <div className="sidebar-section-title">Sistema</div>
               <button className={`sidebar-item ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}><Users size={16} /> Configurações</button>
+              <a href="/billing" className="sidebar-item">💳 Plano</a>
+              <a href="/account" className="sidebar-item">👤 Minha Conta</a>
             </div>
           )}
         </nav>
         <div className="sidebar-footer">
+          <div style={{ marginBottom: 8 }}>
+            <PlanBadge plan={currentUser.plan || "basico"} />
+          </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600 }}>{currentUser.name}</div>
