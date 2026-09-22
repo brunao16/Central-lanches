@@ -1,72 +1,95 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
-  ShoppingBag,
-  Utensils,
-  Receipt,
-  ChartNoAxesCombined,
-  Plus,
-  Camera,
+  ShoppingBag, Utensils, Receipt, ChartNoAxesCombined,
+  Plus, Camera, Download, FileText, Trash2, Edit, Search,
+  Lock, Users, Building2, BarChart3, Send, Package, Bell,
 } from "lucide-react";
 
-type Product = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  active: number;
-};
+type Product = { id: string; name: string; description: string; price: number; active: number; photo: string | null; category: string; stock: number };
+type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
+type Expense = { id: string; day: string; merchant: string; amount: number; receipt: string | null; created: string; branch: string };
+type User = { id: string; username: string; name: string; role: string; branch: string };
+type Branch = { id: string; name: string };
+type Data = { products: Product[]; sales: Sale[]; expenses: Expense[]; totals: { revenue: number; costs: number; count: number } };
 
-type Sale = {
-  id: string;
-  created: string;
-  lines: string;
-  payment: string;
-  total: number;
-  received: number;
-};
+const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v / 100);
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const cents = (s: string) => { const v = s.trim().replace(",", "."); return /^\d+(\.\d{1,2})?$/.test(v) ? Math.round(Number(v) * 100) : NaN; };
 
-type Expense = {
-  id: string;
-  day: string;
-  merchant: string;
-  amount: number;
-  receipt: string | null;
-};
+function playSound(type: "success" | "error") {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (type === "success") {
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      osc.start();
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.stop(ctx.currentTime + 0.3);
+    } else {
+      osc.frequency.value = 300;
+      gain.gain.value = 0.3;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.stop(ctx.currentTime + 0.5);
+    }
+  } catch {}
+}
 
-type Data = {
-  products: Product[];
-  sales: Sale[];
-  expenses: Expense[];
-  totals: { revenue: number; costs: number; count: number };
-};
+function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-const brl = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    v / 100
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const r = await fetch("/api/records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "login", username: user, password: pass }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error);
+      localStorage.setItem("cl_user", JSON.stringify(d.user));
+      onLogin(d.user);
+    } catch (e) { setError((e as Error).message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f5f7" }}>
+      <form onSubmit={handleLogin} className="panel" style={{ width: 380, textAlign: "center" }}>
+        <div className="brand" style={{ margin: "0 auto 16px", width: 64, height: 64, fontSize: 28 }}>CL</div>
+        <h1 style={{ fontSize: 22 }}>Central Lanches</h1>
+        <p className="hint" style={{ marginBottom: 24 }}>Faça login para acessar</p>
+        {error && <div className="error">{error}</div>}
+        <label htmlFor="user">Usuário</label>
+        <input id="user" value={user} onChange={(e) => setUser(e.target.value)} placeholder="admin" required />
+        <label htmlFor="pass" style={{ marginTop: 12 }}>Senha</label>
+        <input id="pass" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••" required />
+        <button style={{ marginTop: 20 }} disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
+      </form>
+    </div>
   );
-
-const today = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date());
-
-const cents = (s: string) => {
-  const v = s.trim().replace(",", ".");
-  return /^\d+(\.\d{1,2})?$/.test(v) ? Math.round(Number(v) * 100) : NaN;
-};
+}
 
 export default function Home() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tab, setTab] = useState("caixa");
-  const [data, setData] = useState<Data>({
-    products: [],
-    sales: [],
-    expenses: [],
-    totals: { revenue: 0, costs: 0, count: 0 },
-  });
+  const [data, setData] = useState<Data>({ products: [], sales: [], expenses: [], totals: { revenue: 0, costs: 0, count: 0 } });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -76,67 +99,57 @@ export default function Home() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [payment, setPayment] = useState("Pix");
   const [received, setReceived] = useState("");
-  const [product, setProduct] = useState({
-    id: "",
-    name: "",
-    description: "",
-    price: "",
-  });
+  const [product, setProduct] = useState({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1" });
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [expenseDay, setExpenseDay] = useState(today());
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [saleNote, setSaleNote] = useState("");
+  const [editSaleId, setEditSaleId] = useState("");
+  const [showNewUser, setShowNewUser] = useState(false);
+  const [newUser, setNewUser] = useState({ username: "", password: "", name: "", role: "caixa" });
+  const [showNewBranch, setShowNewBranch] = useState(false);
+  const [newBranchName, setNewBranchName] = useState("");
 
   const photoInput = useRef<HTMLInputElement>(null);
+  const productPhotoInput = useRef<HTMLInputElement>(null);
   const saleId = useRef("");
   const expenseId = useRef("");
   const productId = useRef("");
   const lock = useRef(false);
   const loadSeq = useRef(0);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const n = ++loadSeq.current;
     setLoading(true);
     try {
-      const r = await fetch("/api/records?from=" + from + "&to=" + to);
+      const params = new URLSearchParams({ from, to, search, page: String(page) });
+      if (selectedBranch) params.set("branch", selectedBranch);
+      const r = await fetch("/api/records?action=records&" + params);
       const d: any = await r.json();
       if (!r.ok) throw Error(d.error);
-      if (n === loadSeq.current) {
-        setData(d);
-        setError("");
-      }
-    } catch (e) {
-      if (n === loadSeq.current) setError((e as Error).message);
-    } finally {
-      if (n === loadSeq.current) setLoading(false);
-    }
-  }
+      if (n === loadSeq.current) { setData(d); setError(""); }
+    } catch (e) { if (n === loadSeq.current) setError((e as Error).message); }
+    finally { if (n === loadSeq.current) setLoading(false); }
+  }, [from, to, search, page, selectedBranch]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (!photo) { setPhotoUrl(""); return; } const u = URL.createObjectURL(photo); setPhotoUrl(u); return () => URL.revokeObjectURL(u); }, [photo]);
 
   useEffect(() => {
-    void refresh();
-  }, [from, to]);
-
-  useEffect(() => {
-    if (!photo) {
-      setPhotoUrl("");
-      return;
-    }
-    const u = URL.createObjectURL(photo);
-    setPhotoUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [photo]);
+    const saved = localStorage.getItem("cl_user");
+    if (saved) setCurrentUser(JSON.parse(saved));
+    fetch("/api/records?action=branches").then(r => r.json()).then((d: any) => setBranches(d.branches || [])).catch(() => {});
+  }, []);
 
   async function save(payload: object | FormData) {
-    const r = await fetch("/api/records", {
-      method: "POST",
-      headers:
-        payload instanceof FormData
-          ? undefined
-          : { "Content-Type": "application/json" },
-      body:
-        payload instanceof FormData ? payload : JSON.stringify(payload),
-    });
+    const isForm = payload instanceof FormData;
+    const r = await fetch("/api/records", { method: "POST", headers: isForm ? undefined : { "Content-Type": "application/json" }, body: isForm ? payload : JSON.stringify(payload) });
     const d: any = await r.json();
     if (!r.ok) throw Error(d.error);
     return d;
@@ -144,65 +157,31 @@ export default function Home() {
 
   async function run(fn: () => Promise<void>) {
     if (lock.current) return;
-    lock.current = true;
-    setBusy(true);
-    setError("");
-    setSuccess("");
-    try {
-      await fn();
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      lock.current = false;
-      setBusy(false);
-    }
+    lock.current = true; setBusy(true); setError(""); setSuccess("");
+    try { await fn(); await refresh(); } catch (e) { setError((e as Error).message); }
+    finally { lock.current = false; setBusy(false); }
   }
 
-  const lines = Object.entries(cart)
-    .map(([id, qty]) => ({
-      p: data.products.find((p) => p.id === id),
-      qty,
-    }))
-    .filter((x) => x.p) as { p: Product; qty: number }[];
-
+  const lines = Object.entries(cart).map(([id, qty]) => ({ p: data.products.find((p) => p.id === id), qty })).filter((x) => x.p) as { p: Product; qty: number }[];
   const total = lines.reduce((s, x) => s + x.p.price * x.qty, 0);
 
   function quantity(id: string, delta: number) {
     if (busy) return;
     saleId.current = "";
-    setCart((c) => {
-      const n = { ...c };
-      n[id] = Math.max(0, Math.min(999, (n[id] || 0) + delta));
-      if (!n[id]) delete n[id];
-      return n;
-    });
+    setCart((c) => { const n = { ...c }; n[id] = Math.max(0, Math.min(999, (n[id] || 0) + delta)); if (!n[id]) delete n[id]; return n; });
   }
 
   async function checkout() {
     await run(async () => {
-      if (!lines.length || lines.some((x) => !x.p.active))
-        throw Error("Confira os lanches do pedido.");
-      if (
-        payment === "Dinheiro" &&
-        (!Number.isFinite(cents(received)) || cents(received) < total)
-      )
-        throw Error(
-          "Informe o valor recebido, igual ou maior que o total."
-        );
+      if (!lines.length || lines.some((x) => !x.p.active)) throw Error("Confira os lanches do pedido.");
+      if (payment === "Dinheiro" && (!Number.isFinite(cents(received)) || cents(received) < total))
+        throw Error("Informe o valor recebido.");
       saleId.current ||= crypto.randomUUID();
-      await save({
-        action: "sale",
-        id: saleId.current,
-        items: lines.map((x) => ({ id: x.p.id, qty: x.qty })),
-        payment,
-        received: payment === "Dinheiro" ? cents(received) : total,
-        expectedTotal: total,
-      });
-      setCart({});
-      setReceived("");
-      saleId.current = "";
-      setSuccess("Venda registrada com sucesso.");
+      await save({ action: "sale", id: saleId.current, items: lines.map((x) => ({ id: x.p.id, qty: x.qty })), payment, received: payment === "Dinheiro" ? cents(received) : total, expectedTotal: total, branch: selectedBranch || "principal", employee: currentUser?.name || "", note: saleNote || null });
+      playSound("success");
+      try { await fetch("/api/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ saleId: saleId.current }) }); } catch {}
+      setCart({}); setReceived(""); setSaleNote(""); saleId.current = "";
+      setSuccess("Venda registrada com sucesso!");
     });
   }
 
@@ -210,20 +189,20 @@ export default function Home() {
     e.preventDefault();
     await run(async () => {
       const price = cents(product.price);
-      if (!Number.isFinite(price) || price <= 0)
-        throw Error(
-          "Informe um preço válido, por exemplo 18,50."
-        );
+      if (!Number.isFinite(price) || price <= 0) throw Error("Preço inválido.");
       productId.current ||= product.id || crypto.randomUUID();
-      await save({
-        action: "product",
-        ...product,
-        id: productId.current,
-        price,
-      });
-      setProduct({ id: "", name: "", description: "", price: "" });
+      await save({ action: "product", id: productId.current, name: product.name, description: product.description, price, category: product.category, stock: parseInt(product.stock) || -1 });
+      if (productPhotoInput.current?.files?.[0]) {
+        const f = new FormData();
+        f.set("action", "upload-product-photo");
+        f.set("id", productId.current);
+        f.set("photo", productPhotoInput.current.files[0]);
+        await save(f);
+      }
+      setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1" });
       productId.current = "";
-      setSuccess("Lanche salvo no cardápio.");
+      if (productPhotoInput.current) productPhotoInput.current.value = "";
+      setSuccess("Lanche salvo!");
     });
   }
 
@@ -231,280 +210,177 @@ export default function Home() {
     e.preventDefault();
     await run(async () => {
       const value = cents(amount);
-      if (!Number.isFinite(value) || value <= 0)
-        throw Error("Informe o valor do comprovante.");
+      if (!Number.isFinite(value) || value <= 0) throw Error("Valor inválido.");
       expenseId.current ||= crypto.randomUUID();
       const f = new FormData();
+      f.set("action", "upload-receipt");
       f.set("id", expenseId.current);
       f.set("merchant", merchant);
       f.set("amount", String(value));
       f.set("day", expenseDay);
+      f.set("branch", selectedBranch || "principal");
       if (photo) f.set("receipt", photo);
       await save(f);
-      setMerchant("");
-      setAmount("");
-      setPhoto(null);
+      setMerchant(""); setAmount(""); setPhoto(null);
       if (photoInput.current) photoInput.current.value = "";
       expenseId.current = "";
-      setSuccess(
-        "Gasto registrado. O resumo já foi atualizado."
-      );
+      setSuccess("Gasto registrado!");
     });
+  }
+
+  async function deleteSale(id: string) {
+    if (!confirm("Excluir esta venda?")) return;
+    await run(async () => { await save({ action: "delete-sale", id }); setSuccess("Venda excluída."); });
+  }
+
+  async function toggleProduct(p: Product) {
+    await run(async () => {
+      await save({ action: "toggle", id: p.id, active: !p.active });
+      setSuccess(p.active ? "Lanche pausado." : "Lanche ativado.");
+    });
+  }
+
+  async function deleteProduct(id: string) {
+    if (!confirm("Excluir este lanche permanentemente?")) return;
+    await run(async () => { await save({ action: "delete-product", id }); setSuccess("Lanche excluído."); });
   }
 
   function selectPhoto(f: File | undefined) {
     setError("");
-    if (!f) {
-      setPhoto(null);
-      return;
-    }
-    if (
-      !["image/jpeg", "image/png", "image/webp"].includes(f.type) ||
-      f.size > 8 * 1024 * 1024
-    ) {
-      setError("Use uma foto JPG, PNG ou WebP de até 8 MB.");
-      return;
-    }
+    if (!f) { setPhoto(null); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type) || f.size > 8 * 1024 * 1024) { setError("Use JPG, PNG ou WebP até 8 MB."); return; }
     setPhoto(f);
   }
+
+  function logout() { localStorage.removeItem("cl_user"); setCurrentUser(null); }
+
+  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
+
+  const categories = Array.from(new Set(data.products.map((p) => p.category)));
 
   return (
     <main className="shell">
       <header>
         <div className="brand">CL</div>
-        <div>
-          <strong>Central Lanches</strong>
-          <p>CAIXA E GESTÃO</p>
+        <div><strong>Central Lanches</strong><p>CAIXA E GESTÃO</p></div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+          {branches.length > 1 && (
+            <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #dce2e8", fontSize: 13 }}>
+              <option value="">Todas filiais</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+          <span className="hint">{currentUser.name} ({currentUser.role})</span>
+          <button className="small" onClick={logout}><Lock size={14} /> Sair</button>
         </div>
-        <span className="store">Sua operação em um só lugar</span>
       </header>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="nav">
-          <TabsTrigger value="caixa">
-            <ShoppingBag /> Caixa
-          </TabsTrigger>
-          <TabsTrigger value="lanches">
-            <Utensils /> Lanches
-          </TabsTrigger>
-          <TabsTrigger value="gastos">
-            <Receipt /> Gastos
-          </TabsTrigger>
-          <TabsTrigger value="gestao">
-            <ChartNoAxesCombined /> Gestão
-          </TabsTrigger>
+          <TabsTrigger value="caixa"><ShoppingBag /> Caixa</TabsTrigger>
+          <TabsTrigger value="lanches"><Utensils /> Lanches</TabsTrigger>
+          <TabsTrigger value="gastos"><Receipt /> Gastos</TabsTrigger>
+          <TabsTrigger value="gestao"><ChartNoAxesCombined /> Gestão</TabsTrigger>
+          <TabsTrigger value="dashboard"><BarChart3 /> Dashboard</TabsTrigger>
+          {currentUser.role === "admin" && <TabsTrigger value="config"><Users /> Config</TabsTrigger>}
         </TabsList>
 
-        {error && (
-          <div className="error" role="alert">
-            {error}{" "}
-            <button
-              className="small"
-              onClick={() => void refresh()}
-              disabled={busy}
-            >
-              Recarregar
-            </button>
-          </div>
-        )}
+        {error && <div className="error" role="alert">{error} <button className="small" onClick={() => void refresh()} disabled={busy}>Recarregar</button></div>}
         {success && <div className="success" role="status">{success}</div>}
-        {loading && (
-          <p role="status" className="notice">
-            Atualizando os registros…
-          </p>
-        )}
+        {loading && <p role="status" className="notice">Atualizando…</p>}
 
+        {/* === CAIXA === */}
         <TabsContent value="caixa">
-          <div className="heading">
-            <div>
-              <p>ATENDIMENTO</p>
-              <h1>Vamos abrir os trabalhos.</h1>
-            </div>
-            <span className="badge">Novo pedido</span>
-          </div>
+          <div className="heading"><div><p>ATENDIMENTO</p><h1>Vamos abrir os trabalhos.</h1></div><span className="badge">Novo pedido</span></div>
           <div className="columns">
             <section className="panel">
               <h2>Seu cardápio</h2>
               {!data.products.some((p) => p.active) ? (
-                <div className="empty">
-                  <Utensils size={40} />
-                  <h3>O primeiro lanche começa aqui</h3>
-                  <p>Cadastre seus lanches e preços para começar a vender.</p>
-                  <button
-                    className="primary"
-                    onClick={() => setTab("lanches")}
-                  >
-                    Cadastrar primeiro lanche
-                  </button>
-                </div>
+                <div className="empty"><Utensils size={40} /><h3>O primeiro lanche começa aqui</h3><p>Cadastre seus lanches para começar a vender.</p><button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button></div>
               ) : (
                 <div className="grid">
-                  {data.products
-                    .filter((p) => p.active)
-                    .map((p) => (
-                      <button
-                        className="product"
-                        key={p.id}
-                        disabled={busy || loading}
-                        onClick={() => quantity(p.id, 1)}
-                      >
-                        <strong>{p.name}</strong>
-                        <span className="hint">
-                          {p.description || "Preparado na hora"}
-                        </span>
-                        <b>{brl(p.price)}</b>
-                        <span className="hint">+ Adicionar ao pedido</span>
-                      </button>
-                    ))}
+                  {categories.map((cat) => (
+                    <div key={cat}>
+                      {categories.length > 1 && <h3 style={{ margin: "8px 0", color: "#657184" }}>{cat}</h3>}
+                      <div className="grid">
+                        {data.products.filter((p) => p.active && p.category === cat).map((p) => (
+                          <button className="product" key={p.id} disabled={busy || loading} onClick={() => quantity(p.id, 1)}>
+                            {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
+                            <strong>{p.name}</strong>
+                            <span className="hint">{p.description || "Preparado na hora"}</span>
+                            <b>{brl(p.price)}</b>
+                            {p.stock >= 0 && <span className="hint" style={{ color: p.stock < 5 ? "#c32626" : undefined }}>{p.stock} em estoque</span>}
+                            <span className="hint">+ Adicionar</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
 
             <aside className="panel">
               <h2>Pedido atual</h2>
-              {!lines.length && (
-                <p className="hint">Adicione os lanches do cliente.</p>
-              )}
+              {!lines.length && <p className="hint">Adicione os lanches do cliente.</p>}
               {lines.map(({ p, qty }) => (
                 <div className="row" key={p.id}>
-                  <div>
-                    <strong>{p.name}</strong>
-                    <small>{brl(p.price * qty)}</small>
-                  </div>
+                  <div><strong>{p.name}</strong><small>{brl(p.price * qty)}</small></div>
                   <div className="controls">
-                    <button
-                      className="small"
-                      aria-label={"Remover uma unidade de " + p.name}
-                      disabled={busy}
-                      onClick={() => quantity(p.id, -1)}
-                    >
-                      −
-                    </button>
+                    <button className="small" disabled={busy} onClick={() => quantity(p.id, -1)}>−</button>
                     <span>{qty}</span>
-                    <button
-                      className="small"
-                      aria-label={"Adicionar uma unidade de " + p.name}
-                      disabled={busy}
-                      onClick={() => quantity(p.id, 1)}
-                    >
-                      +
-                    </button>
+                    <button className="small" disabled={busy} onClick={() => quantity(p.id, 1)}>+</button>
                   </div>
                 </div>
               ))}
-              <div className="total">
-                <span>Total</span>
-                <strong>{brl(total)}</strong>
-              </div>
+              <div className="total"><span>Total</span><strong>{brl(total)}</strong></div>
 
-              <p id="payment-label">Forma de pagamento</p>
-              <RadioGroup
-                className="payment"
-                value={payment}
-                disabled={busy}
-                onValueChange={(v) => {
-                  setPayment(v);
-                  saleId.current = "";
-                }}
-                aria-labelledby="payment-label"
-              >
+              <label htmlFor="sale-note">Observação (opcional)</label>
+              <input id="sale-note" value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" style={{ fontSize: 14, padding: "8px 12px" }} />
+
+              <p id="payment-label" style={{ marginTop: 12 }}>Forma de pagamento</p>
+              <RadioGroup className="payment" value={payment} disabled={busy} onValueChange={(v) => { setPayment(v); saleId.current = ""; }} aria-labelledby="payment-label">
                 {["Pix", "Dinheiro", "Cartão"].map((v) => (
-                  <div className="controls" key={v}>
-                    <RadioGroupItem id={v} value={v} />
-                    <label style={{ margin: 0 }} htmlFor={v}>
-                      {v}
-                    </label>
-                  </div>
+                  <div className="controls" key={v}><RadioGroupItem id={v} value={v} /><label style={{ margin: 0 }} htmlFor={v}>{v}</label></div>
                 ))}
               </RadioGroup>
 
-              {payment === "Dinheiro" && (
-                <>
-                  <label htmlFor="received">Valor recebido (R$)</label>
-                  <input
-                    id="received"
-                    inputMode="decimal"
-                    value={received}
-                    disabled={busy}
-                    onChange={(e) => setReceived(e.target.value)}
-                    placeholder="0,00"
-                  />
-                </>
-              )}
+              {payment === "Dinheiro" && (<><label htmlFor="received">Valor recebido (R$)</label><input id="received" inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" /></>)}
 
-              <button
-                style={{ marginTop: 22 }}
-                disabled={busy || !lines.length}
-                onClick={() => void checkout()}
-              >
+              <button style={{ marginTop: 22 }} disabled={busy || !lines.length} onClick={() => void checkout()}>
                 {busy ? "Finalizando…" : "Finalizar pedido"}
               </button>
             </aside>
           </div>
         </TabsContent>
 
+        {/* === LANCHES === */}
         <TabsContent value="lanches">
-          <div className="heading">
-            <div>
-              <p>CARDÁPIO</p>
-              <h1>Seus lanches, do seu jeito.</h1>
+          <div className="heading"><div><p>CARDÁPIO</p><h1>Seus lanches, do seu jeito.</h1></div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a href="/api/export?type=products" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
+              <span className="badge">{data.products.filter((p) => p.active).length} disponíveis</span>
             </div>
-            <span className="badge">
-              {data.products.filter((p) => p.active).length} disponíveis
-            </span>
           </div>
           <div className="columns">
             <section className="panel">
               <h2>Lanches cadastrados</h2>
-              {!data.products.length && (
-                <p className="hint">Nenhum lanche cadastrado ainda.</p>
-              )}
+              {!data.products.length && <p className="hint">Nenhum lanche cadastrado.</p>}
               {data.products.map((p) => (
                 <div className="row" key={p.id}>
-                  <div>
-                    <strong>{p.name}</strong>
-                    <small>{p.description}</small>
-                    <b>{brl(p.price)}</b>
-                    <small>
-                      {p.active ? "Disponível para venda" : "Pausado"}
-                    </small>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
+                    {p.photo && <img src={p.photo} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }} />}
+                    <div>
+                      <strong>{p.name}</strong> <small style={{ background: "#f3f5f7", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{p.category}</small>
+                      <small>{p.description}</small>
+                      <b>{brl(p.price)}</b>
+                      <small>{p.active ? (p.stock >= 0 ? `Estoque: ${p.stock}` : "Disponível") : "Pausado"}</small>
+                    </div>
                   </div>
                   <div className="controls">
-                    <button
-                      className="small"
-                      disabled={busy}
-                      onClick={() => {
-                        setProduct({
-                          ...p,
-                          price: (p.price / 100)
-                            .toFixed(2)
-                            .replace(".", ","),
-                        });
-                        productId.current = p.id;
-                      }}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="small"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          await save({
-                            action: "toggle",
-                            id: p.id,
-                            active: !p.active,
-                          });
-                          setSuccess(
-                            p.active
-                              ? "Lanche pausado."
-                              : "Lanche disponível."
-                          );
-                        })
-                      }
-                    >
-                      {p.active ? "Pausar" : "Ativar"}
-                    </button>
+                    <button className="small" disabled={busy} onClick={() => { setProduct({ ...p, price: (p.price / 100).toFixed(2).replace(".", ","), stock: String(p.stock) }); productId.current = p.id; }}><Edit size={14} /></button>
+                    <button className="small" disabled={busy} onClick={() => void toggleProduct(p)}>{p.active ? "Pausar" : "Ativar"}</button>
+                    <button className="small" disabled={busy} onClick={() => void deleteProduct(p.id)} style={{ color: "#c32626" }}><Trash2 size={14} /></button>
                   </div>
                 </div>
               ))}
@@ -512,170 +388,57 @@ export default function Home() {
 
             <form className="panel" onSubmit={saveProduct}>
               <h2>{product.id ? "Editar lanche" : "Cadastrar lanche"}</h2>
-              <label htmlFor="name">Nome do lanche</label>
-              <input
-                id="name"
-                required
-                maxLength={150}
-                disabled={busy}
-                value={product.name}
-                onChange={(e) =>
-                  setProduct({ ...product, name: e.target.value })
-                }
-                placeholder="Ex.: X-salada"
-              />
-              <label htmlFor="desc">Ingredientes / descrição</label>
-              <textarea
-                id="desc"
-                maxLength={500}
-                disabled={busy}
-                value={product.description}
-                onChange={(e) =>
-                  setProduct({ ...product, description: e.target.value })
-                }
-                placeholder="Pão, hambúrguer, queijo, alface…"
-              />
-              <label htmlFor="price">Preço de venda (R$)</label>
-              <input
-                id="price"
-                required
-                inputMode="decimal"
-                disabled={busy}
-                value={product.price}
-                onChange={(e) =>
-                  setProduct({ ...product, price: e.target.value })
-                }
-                placeholder="18,50"
-              />
-              <button style={{ marginTop: 22 }} disabled={busy}>
-                {busy ? "Salvando…" : "Salvar lanche"}
-              </button>
-              {product.id && (
-                <button
-                  type="button"
-                  className="small"
-                  style={{ marginTop: 10 }}
-                  disabled={busy}
-                  onClick={() => {
-                    setProduct({
-                      id: "",
-                      name: "",
-                      description: "",
-                      price: "",
-                    });
-                    productId.current = "";
-                  }}
-                >
-                  Cancelar edição
-                </button>
-              )}
+              <label>Nome do lanche</label>
+              <input required maxLength={150} disabled={busy} value={product.name} onChange={(e) => setProduct({ ...product, name: e.target.value })} placeholder="Ex.: X-salada" />
+              <label>Ingredientes / descrição</label>
+              <textarea maxLength={500} disabled={busy} value={product.description} onChange={(e) => setProduct({ ...product, description: e.target.value })} placeholder="Pão, hambúrguer, queijo…" />
+              <label>Preço de venda (R$)</label>
+              <input required inputMode="decimal" disabled={busy} value={product.price} onChange={(e) => setProduct({ ...product, price: e.target.value })} placeholder="18,50" />
+              <label>Categoria</label>
+              <input disabled={busy} value={product.category} onChange={(e) => setProduct({ ...product, category: e.target.value })} placeholder="Ex.: Lanches, Bebidas, Porções" />
+              <label>Estoque (-1 = ilimitado)</label>
+              <input inputMode="numeric" disabled={busy} value={product.stock} onChange={(e) => setProduct({ ...product, stock: e.target.value })} placeholder="-1" />
+              <label>Foto do lanche</label>
+              <input ref={productPhotoInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} />
+              <button style={{ marginTop: 16 }} disabled={busy}>{busy ? "Salvando…" : "Salvar lanche"}</button>
+              {product.id && <button type="button" className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => { setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1" }); productId.current = ""; }}>Cancelar</button>}
             </form>
           </div>
         </TabsContent>
 
+        {/* === GASTOS === */}
         <TabsContent value="gastos">
-          <div className="heading">
-            <div>
-              <p>COMPRAS E DESPESAS</p>
-              <h1>Comprovante salvo. Gasto organizado.</h1>
+          <div className="heading"><div><p>COMPRAS E DESPESAS</p><h1>Comprovante salvo. Gasto organizado.</h1></div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a href="/api/export?type=expenses" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
+              <span className="badge">{brl(data.totals.costs)} no período</span>
             </div>
-            <span className="badge">{brl(data.totals.costs)} no período</span>
           </div>
           <div className="columns">
             <form className="panel" onSubmit={saveExpense}>
               <h2>Registrar gasto</h2>
               <div className="fieldgrid">
-                <div>
-                  <label htmlFor="merchant">
-                    Mercado / descrição do gasto
-                  </label>
-                  <input
-                    id="merchant"
-                    required
-                    maxLength={150}
-                    disabled={busy}
-                    value={merchant}
-                    onChange={(e) => setMerchant(e.target.value)}
-                    placeholder="Ex.: Mercado do bairro"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="expenseDay">Data da compra</label>
-                  <input
-                    id="expenseDay"
-                    type="date"
-                    required
-                    disabled={busy}
-                    value={expenseDay}
-                    onChange={(e) => setExpenseDay(e.target.value)}
-                  />
-                </div>
+                <div><label>Mercado / descrição</label><input required maxLength={150} disabled={busy} value={merchant} onChange={(e) => setMerchant(e.target.value)} placeholder="Ex.: Mercado do bairro" /></div>
+                <div><label>Data da compra</label><input type="date" required disabled={busy} value={expenseDay} onChange={(e) => setExpenseDay(e.target.value)} /></div>
               </div>
-              <label htmlFor="amount">Valor total do comprovante (R$)</label>
-              <input
-                id="amount"
-                required
-                inputMode="decimal"
-                disabled={busy}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0,00"
-              />
-              <label htmlFor="photo">
-                <Camera size={18} style={{ display: "inline" }} /> Tirar foto
-                ou anexar comprovante
-              </label>
-              <input
-                id="photo"
-                ref={photoInput}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
-                disabled={busy}
-                onChange={(e) => selectPhoto(e.target.files?.[0])}
-              />
-              <p className="notice">
-                Confira o total na foto e digite o valor acima. JPG, PNG ou
-                WebP, até 8 MB. A foto é opcional.
-              </p>
-              {photoUrl && (
-                <img
-                  src={photoUrl}
-                  alt="Prévia do comprovante selecionado"
-                  className="receipt"
-                />
-              )}
-              <button style={{ marginTop: 20 }} disabled={busy}>
-                {busy ? "Salvando…" : "Salvar gasto"}
-              </button>
+              <label>Valor total (R$)</label>
+              <input required inputMode="decimal" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" />
+              <label><Camera size={18} style={{ display: "inline" }} /> Foto do comprovante</label>
+              <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(e) => selectPhoto(e.target.files?.[0])} />
+              <p className="notice">JPG, PNG ou WebP, até 8 MB. Opcional.</p>
+              {photoUrl && <img src={photoUrl} alt="Prévia" className="receipt" />}
+              <button style={{ marginTop: 16 }} disabled={busy}>{busy ? "Salvando…" : "Salvar gasto"}</button>
             </form>
-
             <aside className="panel">
               <h2>Gastos no período</h2>
-              <p className="notice">
-                {from.split("-").reverse().join("/")} até{" "}
-                {to.split("-").reverse().join("/")}. Altere o período na
-                Gestão.
-              </p>
-              {!data.expenses.length && (
-                <p className="hint">
-                  Nenhum gasto registrado no período.
-                </p>
-              )}
+              <p className="notice">{from.split("-").reverse().join("/")} até {to.split("-").reverse().join("/")}</p>
+              {!data.expenses.length && <p className="hint">Nenhum gasto no período.</p>}
               {data.expenses.map((e) => (
                 <div className="row" key={e.id}>
                   <div>
                     <strong>{e.merchant}</strong>
                     <small>{e.day.split("-").reverse().join("/")}</small>
-                    {e.receipt && (
-                      <a
-                        href={"/api/receipt?id=" + e.id}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Ver comprovante
-                      </a>
-                    )}
+                    {e.receipt && <a href={"/api/receipt?id=" + e.id} target="_blank" rel="noopener noreferrer" style={{ color: "#d84416" }}>Ver comprovante</a>}
                   </div>
                   <b>{brl(e.amount)}</b>
                 </div>
@@ -684,105 +447,152 @@ export default function Home() {
           </div>
         </TabsContent>
 
+        {/* === GESTÃO === */}
         <TabsContent value="gestao">
-          <div className="heading">
-            <div>
-              <p>VISÃO GERAL</p>
-              <h1>Seu negócio em números.</h1>
+          <div className="heading"><div><p>VISÃO GERAL</p><h1>Seu negócio em números.</h1></div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a href={`/api/report?from=${from}&to=${to}`} target="_blank" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><FileText size={14} /> Relatório</a>
+              <a href={`/api/export?type=sales&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Vendas</a>
+              <a href={`/api/export?type=expenses&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Gastos</a>
             </div>
           </div>
-          <section className="panel">
-            <div className="fieldgrid">
-              <div>
-                <label htmlFor="from">De</label>
-                <input
-                  id="from"
-                  type="date"
-                  value={from}
-                  onChange={(e) => {
-                    if (e.target.value) setFrom(e.target.value);
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="to">Até</label>
-                <input
-                  id="to"
-                  type="date"
-                  value={to}
-                  onChange={(e) => {
-                    if (e.target.value) setTo(e.target.value);
-                  }}
-                />
-              </div>
-            </div>
-          </section>
-
+          <section className="panel"><div className="fieldgrid">
+            <div><label>De</label><input type="date" value={from} onChange={(e) => { if (e.target.value) setFrom(e.target.value); }} /></div>
+            <div><label>Até</label><input type="date" value={to} onChange={(e) => { if (e.target.value) setTo(e.target.value); }} /></div>
+          </div></section>
           <div className="stats">
-            <section className="panel">
-              <span className="summary-label">Vendas registradas</span>
-              <strong>{brl(data.totals.revenue)}</strong>
-              <p className="hint">
-                {data.totals.count} vendas no período
-              </p>
-            </section>
-            <section className="panel">
-              <span className="summary-label">Gastos registrados</span>
-              <strong>{brl(data.totals.costs)}</strong>
-              <p className="hint">Compras e despesas informadas</p>
-            </section>
-            <section
-              className="panel"
-              style={{ background: "#1d2532", color: "white" }}
-            >
-              <span>Saldo do período</span>
-              <strong>{brl(data.totals.revenue - data.totals.costs)}</strong>
-              <p className="notice" style={{ color: "#c7d0de" }}>
-                Vendas menos gastos registrados
-              </p>
-            </section>
+            <section className="panel"><span className="summary-label">Vendas</span><strong>{brl(data.totals.revenue)}</strong><p className="hint">{data.totals.count} vendas</p></section>
+            <section className="panel"><span className="summary-label">Gastos</span><strong>{brl(data.totals.costs)}</strong><p className="hint">{data.expenses.length} registros</p></section>
+            <section className="panel" style={{ background: "#1d2532", color: "white" }}><span>Saldo</span><strong>{brl(data.totals.revenue - data.totals.costs)}</strong><p className="notice" style={{ color: "#c7d0de" }}>Vendas - Gastos</p></section>
           </div>
-          <p className="notice">
-            O saldo considera apenas os registros deste sistema; não
-            representa o lucro contábil nem o dinheiro disponível na
-            gaveta.
-          </p>
 
           <section className="panel history">
-            <h2>Histórico de vendas</h2>
-            <p className="notice">
-              Até 200 vendas mais recentes do período. Os totais consideram
-              todas as vendas.
-            </p>
-            {!data.sales.length && (
-              <p className="hint">As vendas finalizadas aparecerão aqui.</p>
-            )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2>Histórico de vendas</h2>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Buscar…" style={{ padding: "6px 10px", fontSize: 13, width: 160 }} />
+                <span className="hint">Pág. {page}</span>
+                {page > 1 && <button className="small" onClick={() => setPage((p) => p - 1)}>Anterior</button>}
+                {data.sales.length >= 200 && <button className="small" onClick={() => setPage((p) => p + 1)}>Próxima</button>}
+              </div>
+            </div>
+            {!data.sales.length && <p className="hint">Nenhuma venda no período.</p>}
             {data.sales.map((s) => (
               <div className="row" key={s.id}>
                 <div>
-                  <strong>
-                    {new Date(s.created).toLocaleString("pt-BR", {
-                      timeZone: "America/Sao_Paulo",
-                    })}
-                  </strong>
-                  <small>
-                    {JSON.parse(s.lines)
-                      .map((x: any) => x.qty + "× " + x.name)
-                      .join(" · ")}
-                  </small>
-                  <small>
-                    {s.payment}
-                    {s.payment === "Dinheiro"
-                      ? " · Troco " + brl(s.received - s.total)
-                      : ""}
-                  </small>
+                  <strong>{new Date(s.created).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong>
+                  <small>{JSON.parse(s.lines).map((x: any) => `${x.qty}× ${x.name}`).join(" · ")}</small>
+                  <small>{s.payment}{s.payment === "Dinheiro" ? ` · Troco ${brl(s.received - s.total)}` : ""}{s.employee ? ` · ${s.employee}` : ""}{s.note ? ` · ${s.note}` : ""}</small>
                 </div>
-                <b>{brl(s.total)}</b>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <b>{brl(s.total)}</b>
+                  <button className="small" onClick={() => void deleteSale(s.id)} style={{ color: "#c32626", padding: "4px 8px" }}><Trash2 size={14} /></button>
+                </div>
               </div>
             ))}
           </section>
         </TabsContent>
+
+        {/* === DASHBOARD === */}
+        <TabsContent value="dashboard">
+          <DashboardPanel from={from} to={to} branch={selectedBranch} />
+        </TabsContent>
+
+        {/* === CONFIG === */}
+        {currentUser.role === "admin" && (
+          <TabsContent value="config">
+            <div className="heading"><div><p>CONFIGURAÇÕES</p><h1>Gerenciar sistema.</h1></div></div>
+            <div className="stats">
+              <section className="panel">
+                <h2>Filiais</h2>
+                {branches.map((b) => <div className="row" key={b.id}><strong>{b.name}</strong></div>)}
+                {showNewBranch ? (
+                  <div style={{ marginTop: 12 }}>
+                    <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} placeholder="Nome da filial" />
+                    <button style={{ marginTop: 8 }} onClick={async () => { await save({ action: "create-branch", name: newBranchName }); setShowNewBranch(false); setNewBranchName(""); const d = await fetch("/api/records?action=branches").then((r) => r.json()); setBranches(d.branches); setSuccess("Filial criada!"); }}>Salvar</button>
+                  </div>
+                ) : <button className="small" style={{ marginTop: 12 }} onClick={() => setShowNewBranch(true)}><Plus size={14} /> Nova filial</button>}
+              </section>
+              <section className="panel">
+                <h2>Funcionários</h2>
+                {showNewUser ? (
+                  <div>
+                    <label>Nome</label><input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+                    <label>Usuário</label><input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
+                    <label>Senha</label><input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+                    <label>Cargo</label>
+                    <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+                      <option value="caixa">Caixa</option>
+                      <option value="gerente">Gerente</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button style={{ marginTop: 12 }} onClick={async () => { await save({ action: "create-user", ...newUser }); setShowNewUser(false); setNewUser({ username: "", password: "", name: "", role: "caixa" }); setSuccess("Funcionário criado!"); }}>Salvar</button>
+                  </div>
+                ) : <button className="small" style={{ marginTop: 12 }} onClick={() => setShowNewUser(true)}><Plus size={14} /> Novo funcionário</button>}
+              </section>
+              <section className="panel">
+                <h2>Senhas padrão</h2>
+                <p className="hint">Admin: admin / admin123</p>
+                <p className="hint">Altere a senha do admin após o primeiro login!</p>
+              </section>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </main>
+  );
+}
+
+function DashboardPanel({ from, to, branch }: { from: string; to: string; branch: string }) {
+  const [dash, setDash] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ action: "dashboard", from, to });
+    if (branch) params.set("branch", branch);
+    fetch("/api/records?" + params).then((r) => r.json()).then((d) => { setDash(d); setLoading(false); }).catch(() => setLoading(false));
+  }, [from, to, branch]);
+
+  if (loading) return <p className="notice">Carregando dashboard…</p>;
+  if (!dash) return <p className="error">Erro ao carregar dashboard.</p>;
+
+  const { totals, dailySales, paymentStats } = dash;
+
+  return (
+    <>
+      <div className="heading"><div><p>DASHBOARD</p><h1>Visão completa do negócio.</h1></div></div>
+      <div className="stats">
+        <section className="panel"><span className="summary-label">Receita total</span><strong>{brl(totals.revenue)}</strong><p className="hint">{totals.count} vendas</p></section>
+        <section className="panel"><span className="summary-label">Despesas</span><strong>{brl(totals.costs)}</strong></section>
+        <section className="panel" style={{ background: "#1d2532", color: "white" }}><span>Lucro estimado</span><strong>{brl(totals.revenue - totals.costs)}</strong></section>
+      </div>
+
+      <div className="stats">
+        <section className="panel">
+          <h2>Vendas por dia</h2>
+          {dailySales.length === 0 && <p className="hint">Sem dados no período.</p>}
+          {dailySales.map((d: any) => (
+            <div className="row" key={d.day}>
+              <strong>{d.day.split("-").reverse().join("/")}</strong>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ background: "#d84416", height: 8, borderRadius: 4, width: `${Math.min(100, (d.total / Math.max(...dailySales.map((x: any) => x.total))) * 100)}%`, minWidth: 4 }} />
+                <b>{brl(d.total)}</b>
+                <span className="hint">{d.count} vendas</span>
+              </div>
+            </div>
+          ))}
+        </section>
+        <section className="panel">
+          <h2>Formas de pagamento</h2>
+          {paymentStats.map((p: any) => (
+            <div className="row" key={p.payment}>
+              <strong>{p.payment}</strong>
+              <div><b>{brl(p.total)}</b> <span className="hint">({p.count} vendas)</span></div>
+            </div>
+          ))}
+        </section>
+      </div>
+    </>
   );
 }
