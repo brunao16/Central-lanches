@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, and, gte, lte, sql, desc, like, or } from "drizzle-orm";
 import { getDb } from "@/db";
-import { products, sales, expenses, users, branches, coupons } from "@/db/schema";
+import { products, sales, expenses, users, branches, coupons, loyalty, loyaltyTransactions } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -349,6 +349,15 @@ export async function POST(req: Request) {
         employee: b.employee || "",
         note: b.note || null,
       });
+      if (b.customerId) {
+        const pts = Math.floor(total / 100);
+        if (pts > 0) {
+          const ex = await db.select().from(loyalty).where(eq(loyalty.customerId, b.customerId)).get();
+          if (ex) { const np = ex.points + pts; const tier = np >= 1000 ? "gold" : np >= 500 ? "prata" : "bronze"; await db.update(loyalty).set({ points: np, totalEarned: ex.totalEarned + pts, tier }).where(eq(loyalty.id, ex.id)); }
+          else { const tier = pts >= 1000 ? "gold" : pts >= 500 ? "prata" : "bronze"; await db.insert(loyalty).values({ id: crypto.randomUUID(), customerId: b.customerId, points: pts, totalEarned: pts, tier }); }
+          await db.insert(loyaltyTransactions).values({ id: crypto.randomUUID(), customerId: b.customerId, type: "earned", points: pts, description: `Compra #${b.id.slice(-6)}`, created: new Date().toISOString() });
+        }
+      }
       return json({ ok: true, total, change: received - total });
     }
 

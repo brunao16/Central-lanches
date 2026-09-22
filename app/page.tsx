@@ -300,6 +300,16 @@ export default function Home() {
           <TabsTrigger value="dashboard"><BarChart3 /> Dashboard</TabsTrigger>
           {currentUser.role === "admin" && <TabsTrigger value="config"><Users /> Config</TabsTrigger>}
         </TabsList>
+        <div style={{ display: "flex", gap: 6, padding: "8px 16px", overflow: "auto", background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
+          <a href="/pedido" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🍔 Cardápio Online</a>
+          <a href="/cozinha" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>👨‍🍳 Cozinha</a>
+          <a href="/cozinha-avancada" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🔥 Cozinha Avanç.</a>
+          <a href="/mesas" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🍽️ Mesas</a>
+          <a href="/delivery" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🛵 Delivery</a>
+          <a href="/fidelidade" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>⭐ Fidelidade</a>
+          <a href="/ponto" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>⏰ Ponto</a>
+          <a href="/nfe" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>📄 NF-e</a>
+        </div>
 
         {error && <div className="error" role="alert">{error} <button className="small" onClick={() => void refresh()} disabled={busy}>Recarregar</button></div>}
         {success && <div className="success" role="status">{success}</div>}

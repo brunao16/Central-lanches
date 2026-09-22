@@ -97,3 +97,80 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const restaurantTables = sqliteTable("restaurant_tables", {
+  id: text("id").primaryKey(),
+  number: integer("number").notNull().unique(),
+  name: text("name").notNull().default(""),
+  capacity: integer("capacity").notNull().default(4),
+  status: text("status").notNull().default("available"),
+  currentOrder: text("current_order"),
+  branch: text("branch").notNull().default("principal"),
+});
+
+export const timeClock = sqliteTable("time_clock", {
+  id: text("id").primaryKey(),
+  employee: text("employee").notNull(),
+  clockIn: text("clock_in").notNull(),
+  clockOut: text("clock_out"),
+  branch: text("branch").notNull().default("principal"),
+  day: text("day").notNull(),
+});
+
+export const loyalty = sqliteTable("loyalty", {
+  id: text("id").primaryKey(),
+  customerId: text("customer_id").notNull(),
+  points: integer("points").notNull().default(0),
+  totalEarned: integer("total_earned").notNull().default(0),
+  totalRedeemed: integer("total_redeemed").notNull().default(0),
+  tier: text("tier").notNull().default("bronze"),
+});
+
+export const loyaltyTransactions = sqliteTable("loyalty_transactions", {
+  id: text("id").primaryKey(),
+  customerId: text("customer_id").notNull(),
+  type: text("type").notNull(),
+  points: integer("points").notNull(),
+  description: text("description").notNull().default(""),
+  created: text("created").notNull(),
+});
+
+export const deliveries = sqliteTable("deliveries", {
+  id: text("id").primaryKey(),
+  saleId: text("sale_id").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  customerAddress: text("customer_address").notNull(),
+  status: text("status").notNull().default("pending"),
+  driver: text("driver").notNull().default(""),
+  created: text("created").notNull(),
+  pickedAt: text("picked_at"),
+  deliveredAt: text("delivered_at"),
+  branch: text("branch").notNull().default("principal"),
+  note: text("note"),
+});
+
+export const tickets = sqliteTable("tickets", {
+  id: text("id").primaryKey(),
+  items: text("items").notNull(),
+  status: text("status").notNull().default("pending"),
+  priority: integer("priority").notNull().default(0),
+  total: integer("total").notNull().default(0),
+  tableNum: text("table_num").notNull().default(""),
+  employee: text("employee").notNull().default(""),
+  branch: text("branch").notNull().default("principal"),
+  created: text("created").notNull(),
+  startedAt: text("started_at"),
+  readyAt: text("ready_at"),
+  note: text("note"),
+});
+
+export const nfes = sqliteTable("nfes", {
+  id: text("id").primaryKey(),
+  saleId: text("sale_id").notNull(),
+  number: integer("number").notNull(),
+  cpfCnpj: text("cpf_cnpj").notNull().default(""),
+  created: text("created").notNull(),
+  xml: text("xml"),
+  status: text("status").notNull().default("emitida"),
+});
