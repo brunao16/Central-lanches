@@ -12,12 +12,16 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
+    "@vercel/blob": "^0.29.0",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.3",
+    "jspdf": "^3.0.1",
     "lucide-react": "^0.460.0",
     "next": "14.2.20",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "recharts": "^2.15.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7"
   },
