@@ -13,7 +13,6 @@ import {
   Lock, Users, Building2, BarChart3, Send, Package, Bell,
   Undo2, Printer,
 } from "lucide-react";
-import Dashboard from "@/components/dashboard";
 
 type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
 type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
@@ -76,17 +75,17 @@ function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f5f7" }}>
-      <form onSubmit={handleLogin} className="panel" style={{ width: 380, textAlign: "center" }}>
-        <div className="brand" style={{ margin: "0 auto 16px", width: 64, height: 64, fontSize: 28 }}>CL</div>
-        <h1 style={{ fontSize: 22 }}>Central Lanches</h1>
-        <p className="hint" style={{ marginBottom: 24 }}>Faça login para acessar</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e8192c 0%, #8b0000 100%)" }}>
+      <form onSubmit={handleLogin} style={{ background: "white", borderRadius: 16, padding: 40, width: 380, textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg, #e8192c, #ff6b6b)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, margin: "0 auto 16px", letterSpacing: -1 }}>CL</div>
+        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -.5, marginBottom: 4 }}>Central Lanches</h1>
+        <p style={{ color: "#6b7280", marginBottom: 28, fontSize: 14 }}>Faça login para acessar o sistema</p>
         {error && <div className="error">{error}</div>}
-        <label htmlFor="user">Usuário</label>
-        <input id="user" value={user} onChange={(e) => setUser(e.target.value)} placeholder="admin" required />
-        <label htmlFor="pass" style={{ marginTop: 12 }}>Senha</label>
+        <label htmlFor="user" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Usuário</label>
+        <input id="user" value={user} onChange={(e) => setUser(e.target.value)} placeholder="admin" required style={{ marginBottom: 16 }} />
+        <label htmlFor="pass" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Senha</label>
         <input id="pass" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••" required />
-        <button style={{ marginTop: 20 }} disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
+        <button className="primary" style={{ width: "100%", marginTop: 20, padding: "12px 24px", fontSize: 15 }} disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
       </form>
     </div>
   );
@@ -636,7 +635,7 @@ function HomeInner() {
 
         {/* === DASHBOARD === */}
         <TabsContent value="dashboard">
-          <Dashboard from={from} to={to} branch={selectedBranch} />
+          <DashboardPanel from={from} to={to} branch={selectedBranch} />
         </TabsContent>
 
         {/* === CONFIG === */}
@@ -718,5 +717,59 @@ function HomeInner() {
         )}
       </Tabs>
     </main>
+  );
+}
+
+function DashboardPanel({ from, to, branch }: { from: string; to: string; branch: string }) {
+  const [dash, setDash] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ action: "dashboard", from, to });
+    if (branch) params.set("branch", branch);
+    fetch("/api/records?" + params).then((r) => r.json()).then((d) => { setDash(d); setLoading(false); }).catch(() => setLoading(false));
+  }, [from, to, branch]);
+
+  if (loading) return <p className="notice">Carregando dashboard…</p>;
+  if (!dash) return <p className="error">Erro ao carregar dashboard.</p>;
+
+  const { totals, dailySales, paymentStats } = dash;
+
+  return (
+    <>
+      <div className="heading"><div><p>DASHBOARD</p><h1>Visão completa do negócio.</h1></div></div>
+      <div className="stats">
+        <section className="panel"><span className="summary-label">Receita total</span><strong>{brl(totals.revenue)}</strong><p className="hint">{totals.count} vendas</p></section>
+        <section className="panel"><span className="summary-label">Despesas</span><strong>{brl(totals.costs)}</strong></section>
+        <section className="panel" style={{ background: "#1d2532", color: "white" }}><span>Lucro estimado</span><strong>{brl(totals.revenue - totals.costs)}</strong></section>
+      </div>
+
+      <div className="stats">
+        <section className="panel">
+          <h2>Vendas por dia</h2>
+          {dailySales.length === 0 && <p className="hint">Sem dados no período.</p>}
+          {dailySales.map((d: any) => (
+            <div className="row" key={d.day}>
+              <strong>{d.day.split("-").reverse().join("/")}</strong>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ background: "#d84416", height: 8, borderRadius: 4, width: `${Math.min(100, (d.total / Math.max(...dailySales.map((x: any) => x.total))) * 100)}%`, minWidth: 4 }} />
+                <b>{brl(d.total)}</b>
+                <span className="hint">{d.count} vendas</span>
+              </div>
+            </div>
+          ))}
+        </section>
+        <section className="panel">
+          <h2>Formas de pagamento</h2>
+          {paymentStats.map((p: any) => (
+            <div className="row" key={p.payment}>
+              <strong>{p.payment}</strong>
+              <div><b>{brl(p.total)}</b> <span className="hint">({p.count} vendas)</span></div>
+            </div>
+          ))}
+        </section>
+      </div>
+    </>
   );
 }
