@@ -52,7 +52,7 @@ function playSound(type: "success" | "error") {
 }
 
 function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
-  const [user, setUser] = useState("");
+  const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,13 +62,14 @@ function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
     setLoading(true);
     setError("");
     try {
-      const r = await fetch("/api/records", {
+      const r = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", username: user, password: pass }),
+        body: JSON.stringify({ action: "login", email, password: pass }),
       });
       const d = await r.json();
       if (!r.ok) throw Error(d.error);
+      localStorage.setItem("cl_token", d.token);
       localStorage.setItem("cl_user", JSON.stringify(d.user));
       onLogin(d.user);
     } catch (e) { setError((e as Error).message); }
@@ -76,17 +77,20 @@ function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e8192c 0%, #8b0000 100%)" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 50%, #2d1b69 100%)" }}>
       <form onSubmit={handleLogin} style={{ background: "white", borderRadius: 16, padding: 40, width: 380, textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
         <div style={{ width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg, #e8192c, #ff6b6b)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, margin: "0 auto 16px", letterSpacing: -1 }}>CL</div>
         <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -.5, marginBottom: 4 }}>Central Lanches</h1>
         <p style={{ color: "#6b7280", marginBottom: 28, fontSize: 14 }}>Faça login para acessar o sistema</p>
         {error && <div className="error">{error}</div>}
-        <label htmlFor="user" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Usuário</label>
-        <input id="user" value={user} onChange={(e) => setUser(e.target.value)} placeholder="admin" required style={{ marginBottom: 16 }} />
+        <label htmlFor="email" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Email</label>
+        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required style={{ marginBottom: 16 }} />
         <label htmlFor="pass" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Senha</label>
         <input id="pass" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••" required />
         <button className="primary" style={{ width: "100%", marginTop: 20, padding: "12px 24px", fontSize: 15 }} disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
+        <p style={{ marginTop: 16, fontSize: 13, color: "#6b7280" }}>
+          Não tem conta? <a href="/register" style={{ color: "#e8192c", fontWeight: 600 }}>Criar conta grátis</a>
+        </p>
       </form>
     </div>
   );
@@ -321,7 +325,7 @@ function HomeInner() {
     setPhoto(f);
   }
 
-  function logout() { localStorage.removeItem("cl_user"); setCurrentUser(null); }
+  function logout() { localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); document.cookie = "cl_token=; path=/; max-age=0"; setCurrentUser(null); }
 
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
 
