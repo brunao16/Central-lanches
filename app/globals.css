@@ -440,3 +440,76 @@ textarea {
     font-size: 24px;
   }
 }
+
+/* Dark Mode */
+html.dark {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --card: #1e293b;
+  --card-foreground: #e2e8f0;
+  --popover: #1e293b;
+  --popover-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --input: #334155;
+}
+
+html.dark body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html.dark .panel {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html.dark .product {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html.dark .product:hover:not(:disabled) {
+  background: #263348;
+}
+
+html.dark input, html.dark textarea, html.dark select {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+html.dark .row {
+  border-color: #334155;
+}
+
+html.dark .badge {
+  background: #331a0d;
+  border-color: #5c2a16;
+}
+
+html.dark .error {
+  background: #3b1111;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+html.dark .success {
+  background: #052e16;
+  border-color: #166534;
+  color: #86efac;
+}
+
+html.dark .hint {
+  color: #94a3b8;
+}
+
+html.dark .small {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .small:hover {
+  background: #475569;
+}

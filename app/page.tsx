@@ -9,7 +9,7 @@ import {
   Lock, Users, Building2, BarChart3, Send, Package, Bell,
 } from "lucide-react";
 
-type Product = { id: string; name: string; description: string; price: number; active: number; photo: string | null; category: string; stock: number };
+type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
 type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
 type Expense = { id: string; day: string; merchant: string; amount: number; receipt: string | null; created: string; branch: string };
 type User = { id: string; username: string; name: string; role: string; branch: string };
@@ -99,7 +99,7 @@ export default function Home() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [payment, setPayment] = useState("Pix");
   const [received, setReceived] = useState("");
-  const [product, setProduct] = useState({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1" });
+  const [product, setProduct] = useState({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" });
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [expenseDay, setExpenseDay] = useState(today());
@@ -110,6 +110,12 @@ export default function Home() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [saleNote, setSaleNote] = useState("");
+  const [tip, setTip] = useState("");
+  const [split, setSplit] = useState(1);
+  const [couponCode, setCouponCode] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [darkMode, setDarkMode] = useState(false);
+  const [dailyGoal, setDailyGoal] = useState(50000);
   const [editSaleId, setEditSaleId] = useState("");
   const [showNewUser, setShowNewUser] = useState(false);
   const [newUser, setNewUser] = useState({ username: "", password: "", name: "", role: "caixa" });
@@ -144,8 +150,14 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem("cl_user");
     if (saved) setCurrentUser(JSON.parse(saved));
+    const dark = localStorage.getItem("cl_dark");
+    if (dark === "true") { setDarkMode(true); document.documentElement.classList.add("dark"); }
     fetch("/api/records?action=branches").then(r => r.json()).then((d: any) => setBranches(d.branches || [])).catch(() => {});
   }, []);
+
+  function toggleDark() {
+    setDarkMode((d) => { const next = !d; localStorage.setItem("cl_dark", String(next)); document.documentElement.classList.toggle("dark", next); return next; });
+  }
 
   async function save(payload: object | FormData) {
     const isForm = payload instanceof FormData;
@@ -174,13 +186,16 @@ export default function Home() {
   async function checkout() {
     await run(async () => {
       if (!lines.length || lines.some((x) => !x.p.active)) throw Error("Confira os lanches do pedido.");
-      if (payment === "Dinheiro" && (!Number.isFinite(cents(received)) || cents(received) < total))
+      const tipValue = tip ? cents(tip) : 0;
+      const finalTotal = total - discount + tipValue;
+      if (finalTotal < 0) throw Error("Desconto maior que o total.");
+      if (payment === "Dinheiro" && (!Number.isFinite(cents(received)) || cents(received) < finalTotal))
         throw Error("Informe o valor recebido.");
       saleId.current ||= crypto.randomUUID();
-      await save({ action: "sale", id: saleId.current, items: lines.map((x) => ({ id: x.p.id, qty: x.qty })), payment, received: payment === "Dinheiro" ? cents(received) : total, expectedTotal: total, branch: selectedBranch || "principal", employee: currentUser?.name || "", note: saleNote || null });
+      await save({ action: "sale", id: saleId.current, items: lines.map((x) => ({ id: x.p.id, qty: x.qty })), payment, received: payment === "Dinheiro" ? cents(received) : finalTotal, expectedTotal: total, branch: selectedBranch || "principal", employee: currentUser?.name || "", note: saleNote || null, tip: tipValue, discount, coupon: couponCode || null, split });
       playSound("success");
       try { await fetch("/api/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ saleId: saleId.current }) }); } catch {}
-      setCart({}); setReceived(""); setSaleNote(""); saleId.current = "";
+      setCart({}); setReceived(""); setSaleNote(""); setTip(""); setSplit(1); setCouponCode(""); setDiscount(0); saleId.current = "";
       setSuccess("Venda registrada com sucesso!");
     });
   }
@@ -191,7 +206,7 @@ export default function Home() {
       const price = cents(product.price);
       if (!Number.isFinite(price) || price <= 0) throw Error("Preço inválido.");
       productId.current ||= product.id || crypto.randomUUID();
-      await save({ action: "product", id: productId.current, name: product.name, description: product.description, price, category: product.category, stock: parseInt(product.stock) || -1 });
+      await save({ action: "product", id: productId.current, name: product.name, description: product.description, price, category: product.category, stock: parseInt(product.stock) || -1, cost: cents(product.cost) || 0 });
       if (productPhotoInput.current?.files?.[0]) {
         const f = new FormData();
         f.set("action", "upload-product-photo");
@@ -199,7 +214,7 @@ export default function Home() {
         f.set("photo", productPhotoInput.current.files[0]);
         await save(f);
       }
-      setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1" });
+      setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" });
       productId.current = "";
       if (productPhotoInput.current) productPhotoInput.current.value = "";
       setSuccess("Lanche salvo!");
@@ -271,6 +286,7 @@ export default function Home() {
             </select>
           )}
           <span className="hint">{currentUser.name} ({currentUser.role})</span>
+          <button className="small" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
           <button className="small" onClick={logout}><Lock size={14} /> Sair</button>
         </div>
       </header>
@@ -304,13 +320,13 @@ export default function Home() {
                       {categories.length > 1 && <h3 style={{ margin: "8px 0", color: "#657184" }}>{cat}</h3>}
                       <div className="grid">
                         {data.products.filter((p) => p.active && p.category === cat).map((p) => (
-                          <button className="product" key={p.id} disabled={busy || loading} onClick={() => quantity(p.id, 1)}>
+                          <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
                             {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
                             <strong>{p.name}</strong>
                             <span className="hint">{p.description || "Preparado na hora"}</span>
                             <b>{brl(p.price)}</b>
-                            {p.stock >= 0 && <span className="hint" style={{ color: p.stock < 5 ? "#c32626" : undefined }}>{p.stock} em estoque</span>}
-                            <span className="hint">+ Adicionar</span>
+                            {p.stock >= 0 && <span className="hint" style={{ color: p.stock === 0 ? "#c32626" : p.stock < 5 ? "#f59e0b" : undefined, fontWeight: p.stock < 5 ? 600 : undefined }}>{p.stock === 0 ? "ESGOTADO" : `${p.stock} em estoque`}</span>}
+                            <span className="hint">{p.stock === 0 ? "" : "+ Adicionar"}</span>
                           </button>
                         ))}
                       </div>
@@ -335,8 +351,36 @@ export default function Home() {
               ))}
               <div className="total"><span>Total</span><strong>{brl(total)}</strong></div>
 
-              <label htmlFor="sale-note">Observação (opcional)</label>
-              <input id="sale-note" value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" style={{ fontSize: 14, padding: "8px 12px" }} />
+              {data.totals.revenue > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#657184", marginBottom: 4 }}>
+                    <span>Meta diária</span>
+                    <span>{brl(data.totals.revenue)} / {brl(dailyGoal)}</span>
+                  </div>
+                  <div style={{ background: "#e9edf2", borderRadius: 4, height: 8 }}>
+                    <div style={{ background: data.totals.revenue >= dailyGoal ? "#16a34a" : "#d84416", height: 8, borderRadius: 4, width: `${Math.min(100, (data.totals.revenue / dailyGoal) * 100)}%`, transition: "width 0.3s" }} />
+                  </div>
+                </div>
+              )}
+
+              <label>Cupom de desconto</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="CÓDIGO" style={{ flex: 1, fontSize: 13, padding: "8px 10px", textTransform: "uppercase" }} />
+                <button className="small" disabled={busy} onClick={async () => {
+                  if (!couponCode) return;
+                  try {
+                    const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply-coupon", code: couponCode, subtotal: total }) });
+                    const d = await r.json();
+                    if (!r.ok) throw Error(d.error);
+                    setDiscount(d.discount);
+                    setSuccess(`Cupom aplicado! -${brl(d.discount)}`);
+                  } catch (e) { setError((e as Error).message); }
+                }}>Aplicar</button>
+              </div>
+              {discount > 0 && <p className="hint" style={{ color: "#16a34a" }}>Desconto: -{brl(discount)} <button className="small" onClick={() => { setDiscount(0); setCouponCode(""); }} style={{ padding: "2px 6px", fontSize: 11 }}>remover</button></p>}
+
+              <label>Observação</label>
+              <input value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" style={{ fontSize: 13, padding: "8px 10px" }} />
 
               <p id="payment-label" style={{ marginTop: 12 }}>Forma de pagamento</p>
               <RadioGroup className="payment" value={payment} disabled={busy} onValueChange={(v) => { setPayment(v); saleId.current = ""; }} aria-labelledby="payment-label">
@@ -347,7 +391,23 @@ export default function Home() {
 
               {payment === "Dinheiro" && (<><label htmlFor="received">Valor recebido (R$)</label><input id="received" inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" /></>)}
 
-              <button style={{ marginTop: 22 }} disabled={busy || !lines.length} onClick={() => void checkout()}>
+              <div className="fieldgrid" style={{ marginTop: 8 }}>
+                <div>
+                  <label>Gorjeta (R$)</label>
+                  <input inputMode="decimal" value={tip} disabled={busy} onChange={(e) => setTip(e.target.value)} placeholder="0,00" style={{ fontSize: 13, padding: "8px 10px" }} />
+                </div>
+                <div>
+                  <label>Dividir entre</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button className="small" disabled={busy || split <= 1} onClick={() => setSplit((s) => s - 1)}>−</button>
+                    <span style={{ fontWeight: 700, fontSize: 18 }}>{split}</span>
+                    <button className="small" disabled={busy || split >= 20} onClick={() => setSplit((s) => s + 1)}>+</button>
+                    <span className="hint">= {brl(Math.ceil((total - discount + (tip ? cents(tip) : 0)) / split))}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button style={{ marginTop: 16 }} disabled={busy || !lines.length} onClick={() => void checkout()}>
                 {busy ? "Finalizando…" : "Finalizar pedido"}
               </button>
             </aside>
@@ -378,7 +438,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="controls">
-                    <button className="small" disabled={busy} onClick={() => { setProduct({ ...p, price: (p.price / 100).toFixed(2).replace(".", ","), stock: String(p.stock) }); productId.current = p.id; }}><Edit size={14} /></button>
+                    <button className="small" disabled={busy} onClick={() => { setProduct({ ...p, price: (p.price / 100).toFixed(2).replace(".", ","), stock: String(p.stock), cost: p.cost ? (p.cost / 100).toFixed(2).replace(".", ",") : "" }); productId.current = p.id; }}><Edit size={14} /></button>
                     <button className="small" disabled={busy} onClick={() => void toggleProduct(p)}>{p.active ? "Pausar" : "Ativar"}</button>
                     <button className="small" disabled={busy} onClick={() => void deleteProduct(p.id)} style={{ color: "#c32626" }}><Trash2 size={14} /></button>
                   </div>
@@ -394,6 +454,8 @@ export default function Home() {
               <textarea maxLength={500} disabled={busy} value={product.description} onChange={(e) => setProduct({ ...product, description: e.target.value })} placeholder="Pão, hambúrguer, queijo…" />
               <label>Preço de venda (R$)</label>
               <input required inputMode="decimal" disabled={busy} value={product.price} onChange={(e) => setProduct({ ...product, price: e.target.value })} placeholder="18,50" />
+              <label>Custo do lanche (R$) — para lucro</label>
+              <input inputMode="decimal" disabled={busy} value={product.cost} onChange={(e) => setProduct({ ...product, cost: e.target.value })} placeholder="8,00" />
               <label>Categoria</label>
               <input disabled={busy} value={product.category} onChange={(e) => setProduct({ ...product, category: e.target.value })} placeholder="Ex.: Lanches, Bebidas, Porções" />
               <label>Estoque (-1 = ilimitado)</label>
@@ -401,7 +463,7 @@ export default function Home() {
               <label>Foto do lanche</label>
               <input ref={productPhotoInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} />
               <button style={{ marginTop: 16 }} disabled={busy}>{busy ? "Salvando…" : "Salvar lanche"}</button>
-              {product.id && <button type="button" className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => { setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1" }); productId.current = ""; }}>Cancelar</button>}
+              {product.id && <button type="button" className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => { setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" }); productId.current = ""; }}>Cancelar</button>}
             </form>
           </div>
         </TabsContent>

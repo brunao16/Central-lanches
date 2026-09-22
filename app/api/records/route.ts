@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, and, gte, lte, sql, desc, like, or } from "drizzle-orm";
 import { getDb } from "@/db";
-import { products, sales, expenses, users, branches } from "@/db/schema";
+import { products, sales, expenses, users, branches, coupons } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -249,9 +249,9 @@ export async function POST(req: Request) {
       if (typeof b.description !== "string" || b.description.length > 500) return json({ error: "Descrição muito longa." }, 400);
       const existing = await db.select().from(products).where(eq(products.id, b.id)).get();
       if (existing) {
-        await db.update(products).set({ name: n, description: b.description, price: p, category: b.category || "Geral", stock: b.stock ?? -1 }).where(eq(products.id, b.id));
+        await db.update(products).set({ name: n, description: b.description, price: p, category: b.category || "Geral", stock: b.stock ?? -1, cost: b.cost ?? 0 }).where(eq(products.id, b.id));
       } else {
-        await db.insert(products).values({ id: b.id, name: n, description: b.description, price: p, active: 1, category: b.category || "Geral", stock: b.stock ?? -1 });
+        await db.insert(products).values({ id: b.id, name: n, description: b.description, price: p, active: 1, category: b.category || "Geral", stock: b.stock ?? -1, cost: b.cost ?? 0 });
       }
       return json({ ok: true });
     }
@@ -265,6 +265,46 @@ export async function POST(req: Request) {
     if (b.action === "delete-product") {
       await db.delete(products).where(eq(products.id, b.id));
       return json({ ok: true });
+    }
+
+    if (b.action === "apply-coupon") {
+      if (!b.code) return json({ error: "Informe o código do cupom." }, 400);
+      const coupon = await db.select().from(coupons).where(and(eq(coupons.code, b.code.toUpperCase()), eq(coupons.active, 1))).get();
+      if (!coupon) return json({ error: "Cupom não encontrado." }, 404);
+      if (coupon.uses_left <= 0) return json({ error: "Cupom esgotado." }, 400);
+      if (new Date(coupon.valid_until) < new Date()) return json({ error: "Cupom expirado." }, 400);
+      let discount = 0;
+      if (coupon.type === "percent") {
+        discount = Math.round((b.subtotal || 0) * coupon.value / 100);
+      } else {
+        discount = Math.min(coupon.value, b.subtotal || 0);
+      }
+      await db.update(coupons).set({ uses_left: coupon.uses_left - 1 }).where(eq(coupons.id, coupon.id));
+      return json({ ok: true, discount, type: coupon.type, value: coupon.value });
+    }
+
+    if (b.action === "create-coupon") {
+      if (!b.code || !b.value) return json({ error: "Preencha código e valor." }, 400);
+      try {
+        await db.insert(coupons).values({ id: crypto.randomUUID(), code: b.code.toUpperCase(), type: b.type || "percent", value: b.value, uses_left: b.uses_left || 1, valid_until: b.valid_until || "2099-12-31" });
+        return json({ ok: true });
+      } catch (e: any) {
+        if (e.message?.includes("UNIQUE")) return json({ error: "Cupom já existe." }, 400);
+        throw e;
+      }
+    }
+
+    if (b.action === "quick-sale") {
+      if (!b.items || !Array.isArray(b.items) || !b.items.length) return json({ error: "Pedido vazio." }, 400);
+      const id = crypto.randomUUID();
+      let total = 0;
+      const lines = b.items.map((item: any) => { total += (item.price || 0) * (item.qty || 1); return { id: item.id || "avulso", name: item.name, price: item.price, qty: item.qty || 1 }; });
+      await db.insert(sales).values({
+        id, created: new Date().toISOString(), day: day(), lines: JSON.stringify(lines),
+        payment: b.payment || "Dinheiro", total, received: total,
+        branch: b.branch || "principal", employee: b.employee || "",
+      });
+      return json({ ok: true, total });
     }
 
     if (b.action === "sale") {
