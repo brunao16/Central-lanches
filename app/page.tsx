@@ -393,13 +393,21 @@ export default function Home() {
               <input value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" style={{ fontSize: 13, padding: "8px 10px" }} />
 
               <p id="payment-label" style={{ marginTop: 12 }}>Forma de pagamento</p>
-              <RadioGroup className="payment" value={payment} disabled={busy} onValueChange={(v) => { setPayment(v); saleId.current = ""; }} aria-labelledby="payment-label">
+              <div style={{ display: "flex", gap: 8, margin: "8px 0" }}>
                 {["Pix", "Dinheiro", "Cartão"].map((v) => (
-                  <div className="controls" key={v}><RadioGroupItem id={v} value={v} /><label style={{ margin: 0 }} htmlFor={v}>{v}</label></div>
+                  <button key={v} type="button" disabled={busy} onClick={() => { setPayment(v); saleId.current = ""; }}
+                    style={{
+                      flex: 1, padding: "12px 8px", borderRadius: 8, border: payment === v ? "2px solid #d84416" : "1px solid #dce2e8",
+                      background: payment === v ? "#fff0e7" : "white", color: payment === v ? "#d84416" : "#1d2532",
+                      fontWeight: payment === v ? 700 : 400, cursor: busy ? "not-allowed" : "pointer", fontSize: 14,
+                      transition: "all .15s",
+                    }}>
+                    {v === "Pix" && "⚡ "}{v === "Dinheiro" && "💵 "}{v === "Cartão" && "💳 "}{v}
+                  </button>
                 ))}
-              </RadioGroup>
+              </div>
 
-              {payment === "Dinheiro" && (<><label htmlFor="received">Valor recebido (R$)</label><input id="received" inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" /></>)}
+              {payment === "Dinheiro" && (<><label htmlFor="received" style={{ fontSize: 13, fontWeight: 600 }}>Valor recebido (R$)</label><input id="received" inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" style={{ fontSize: 16, padding: "10px 12px" }} /></>)}
 
               <div className="fieldgrid" style={{ marginTop: 8 }}>
                 <div>
