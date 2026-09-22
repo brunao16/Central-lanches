@@ -13,6 +13,7 @@ import {
   Lock, Users, Building2, BarChart3, Send, Package, Bell,
   Undo2, Printer,
 } from "lucide-react";
+import Dashboard from "@/components/dashboard";
 
 type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
 type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
@@ -635,7 +636,7 @@ function HomeInner() {
 
         {/* === DASHBOARD === */}
         <TabsContent value="dashboard">
-          <DashboardPanel from={from} to={to} branch={selectedBranch} />
+          <Dashboard from={from} to={to} branch={selectedBranch} />
         </TabsContent>
 
         {/* === CONFIG === */}
@@ -717,59 +718,5 @@ function HomeInner() {
         )}
       </Tabs>
     </main>
-  );
-}
-
-function DashboardPanel({ from, to, branch }: { from: string; to: string; branch: string }) {
-  const [dash, setDash] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ action: "dashboard", from, to });
-    if (branch) params.set("branch", branch);
-    fetch("/api/records?" + params).then((r) => r.json()).then((d) => { setDash(d); setLoading(false); }).catch(() => setLoading(false));
-  }, [from, to, branch]);
-
-  if (loading) return <p className="notice">Carregando dashboard…</p>;
-  if (!dash) return <p className="error">Erro ao carregar dashboard.</p>;
-
-  const { totals, dailySales, paymentStats } = dash;
-
-  return (
-    <>
-      <div className="heading"><div><p>DASHBOARD</p><h1>Visão completa do negócio.</h1></div></div>
-      <div className="stats">
-        <section className="panel"><span className="summary-label">Receita total</span><strong>{brl(totals.revenue)}</strong><p className="hint">{totals.count} vendas</p></section>
-        <section className="panel"><span className="summary-label">Despesas</span><strong>{brl(totals.costs)}</strong></section>
-        <section className="panel" style={{ background: "#1d2532", color: "white" }}><span>Lucro estimado</span><strong>{brl(totals.revenue - totals.costs)}</strong></section>
-      </div>
-
-      <div className="stats">
-        <section className="panel">
-          <h2>Vendas por dia</h2>
-          {dailySales.length === 0 && <p className="hint">Sem dados no período.</p>}
-          {dailySales.map((d: any) => (
-            <div className="row" key={d.day}>
-              <strong>{d.day.split("-").reverse().join("/")}</strong>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ background: "#d84416", height: 8, borderRadius: 4, width: `${Math.min(100, (d.total / Math.max(...dailySales.map((x: any) => x.total))) * 100)}%`, minWidth: 4 }} />
-                <b>{brl(d.total)}</b>
-                <span className="hint">{d.count} vendas</span>
-              </div>
-            </div>
-          ))}
-        </section>
-        <section className="panel">
-          <h2>Formas de pagamento</h2>
-          {paymentStats.map((p: any) => (
-            <div className="row" key={p.payment}>
-              <strong>{p.payment}</strong>
-              <div><b>{brl(p.total)}</b> <span className="hint">({p.count} vendas)</span></div>
-            </div>
-          ))}
-        </section>
-      </div>
-    </>
   );
 }
