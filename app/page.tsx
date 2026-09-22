@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 import { Skeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { printComanda, printRecibo } from "@/lib/print";
+import Dashboard from "@/components/dashboard";
 import {
   ShoppingBag, Utensils, Receipt, ChartNoAxesCombined,
   Plus, Camera, Download, FileText, Trash2, Edit, Search,
@@ -327,449 +328,431 @@ function HomeInner() {
   const categories = Array.from(new Set(data.products.map((p) => p.category)));
 
   return (
-    <main className="shell">
-      <header>
-        <div className="brand">CL</div>
-        <div><strong>Central Lanches</strong><p>CAIXA E GESTÃO</p></div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-          {branches.length > 1 && (
-            <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #dce2e8", fontSize: 13 }}>
-              <option value="">Todas filiais</option>
-              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
-          <span className="hint">{currentUser.name} ({currentUser.role})</span>
-          <button className="small" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
-          <button className="small" onClick={logout}><Lock size={14} /> Sair</button>
+    <div className="app-layout">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand" style={{ width: 36, height: 36, fontSize: 14, marginBottom: 0 }}>CL</div>
+          <div><strong style={{ fontSize: 15 }}>Central Lanches</strong><br/><span style={{ fontSize: 10, opacity: .5, letterSpacing: 1, textTransform: "uppercase" }}>Gestão</span></div>
         </div>
-      </header>
-
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="nav">
-          <TabsTrigger value="caixa"><ShoppingBag /> Caixa</TabsTrigger>
-          <TabsTrigger value="lanches"><Utensils /> Lanches</TabsTrigger>
-          <TabsTrigger value="gastos"><Receipt /> Gastos</TabsTrigger>
-          <TabsTrigger value="gestao"><ChartNoAxesCombined /> Gestão</TabsTrigger>
-          <TabsTrigger value="dashboard"><BarChart3 /> Dashboard</TabsTrigger>
-          {currentUser.role === "admin" && <TabsTrigger value="config"><Users /> Config</TabsTrigger>}
-        </TabsList>
-        <div style={{ display: "flex", gap: 6, padding: "8px 16px", overflow: "auto", background: "var(--panel)", borderBottom: "1px solid var(--border)" }}>
-          <a href="/pedido" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🍔 Cardápio Online</a>
-          <a href="/cozinha" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>👨‍🍳 Cozinha</a>
-          <a href="/cozinha-avancada" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🔥 Cozinha Avanç.</a>
-          <a href="/mesas" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🍽️ Mesas</a>
-          <a href="/delivery" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>🛵 Delivery</a>
-          <a href="/fidelidade" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>⭐ Fidelidade</a>
-          <a href="/ponto" target="_blank" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>⏰ Ponto</a>
-          <a href="/nfe" style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "white", fontSize: 12, textDecoration: "none", color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600 }}>📄 NF-e</a>
-        </div>
-
-        {error && <div className="error" role="alert">{error} <button className="small" onClick={() => void refresh()} disabled={busy}>Recarregar</button></div>}
-        {success && <div className="success" role="status">{success}</div>}
-        {undoSale && (
-          <div style={{ background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 8, padding: "8px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <span style={{ flex: 1, fontSize: 13 }}>Venda excluída</span>
-            <button onClick={undoDelete} style={{ background: "#f59e0b", color: "white", border: "none", padding: "4px 12px", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 12 }}>Desfazer</button>
+        <nav className="sidebar-nav">
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Principal</div>
+            <button className={`sidebar-item ${tab === "caixa" ? "active" : ""}`} onClick={() => setTab("caixa")}><ShoppingBag size={16} /> Caixa</button>
+            <button className={`sidebar-item ${tab === "lanches" ? "active" : ""}`} onClick={() => setTab("lanches")}><Utensils size={16} /> Lanches</button>
+            <button className={`sidebar-item ${tab === "gastos" ? "active" : ""}`} onClick={() => setTab("gastos")}><Receipt size={16} /> Gastos</button>
+            <button className={`sidebar-item ${tab === "gestao" ? "active" : ""}`} onClick={() => setTab("gestao")}><ChartNoAxesCombined size={16} /> Gestão</button>
+            <button className={`sidebar-item ${tab === "dashboard" ? "active" : ""}`} onClick={() => setTab("dashboard")}><BarChart3 size={16} /> Dashboard</button>
           </div>
-        )}
-        {loading && <p role="status" className="notice">Atualizando…</p>}
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Operação</div>
+            <a href="/pedido" target="_blank" className="sidebar-item">🍔 Cardápio</a>
+            <a href="/cozinha" target="_blank" className="sidebar-item">👨‍🍳 Cozinha</a>
+            <a href="/cozinha-avancada" target="_blank" className="sidebar-item">🔥 Cozinha+</a>
+            <a href="/mesas" className="sidebar-item">🍽️ Mesas</a>
+            <a href="/delivery" className="sidebar-item">🛵 Delivery</a>
+          </div>
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Gestão</div>
+            <a href="/fidelidade" className="sidebar-item">⭐ Fidelidade</a>
+            <a href="/ponto" target="_blank" className="sidebar-item">⏰ Ponto</a>
+            <a href="/nfe" className="sidebar-item">📄 NF-e</a>
+          </div>
+          {currentUser.role === "admin" && (
+            <div className="sidebar-section">
+              <div className="sidebar-section-title">Sistema</div>
+              <button className={`sidebar-item ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}><Users size={16} /> Configurações</button>
+            </div>
+          )}
+        </nav>
+        <div className="sidebar-footer">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{currentUser.name}</div>
+              <div style={{ fontSize: 10, opacity: .5 }}>{currentUser.role}</div>
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
+              <button className="btn btn-ghost btn-sm btn-icon" onClick={logout}><Lock size={14} /></button>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-        {/* === CAIXA === */}
-        <TabsContent value="caixa">
-          <div className="heading"><div><p>ATENDIMENTO</p><h1>Vamos abrir os trabalhos.</h1></div><span className="badge">Novo pedido</span></div>
-          <div className="columns">
-            <section className="panel">
-              <h2>Seu cardápio</h2>
-              {!data.products.some((p) => p.active) ? (
-                <div className="empty"><Utensils size={40} /><h3>O primeiro lanche começa aqui</h3><p>Cadastre seus lanches para começar a vender.</p><button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button></div>
-              ) : (
-                <div className="grid">
-                  {categories.map((cat) => (
-                    <div key={cat}>
-                      {categories.length > 1 && <h3 style={{ margin: "8px 0", color: "#657184" }}>{cat}</h3>}
-                      <div className="grid">
-                        {data.products.filter((p) => p.active && p.category === cat).map((p) => (
-                          <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
-                            {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
-                            <strong>{p.name}</strong>
-                            <span className="hint">{p.description || "Preparado na hora"}</span>
-                            <b>{brl(p.price)}</b>
-                            {p.stock >= 0 && <span className="hint" style={{ color: p.stock === 0 ? "#c32626" : p.stock < 5 ? "#f59e0b" : undefined, fontWeight: p.stock < 5 ? 600 : undefined }}>{p.stock === 0 ? "ESGOTADO" : `${p.stock} em estoque`}</span>}
-                            <span className="hint">{p.stock === 0 ? "" : "+ Adicionar"}</span>
-                          </button>
-                        ))}
+      <div className="main-content">
+        <div className="top-bar">
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>{tab === "caixa" ? "Caixa" : tab === "lanches" ? "Lanches" : tab === "gastos" ? "Gastos" : tab === "gestao" ? "Gestão" : tab === "dashboard" ? "Dashboard" : "Configurações"}</div>
+            <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {branches.length > 1 && (
+              <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--input)", fontSize: 12 }}>
+                <option value="">Todas filiais</option>
+                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
+
+        <div className="page-content">
+          {error && <div className="error" role="alert">{error} <button className="small" onClick={() => void refresh()} disabled={busy}>Recarregar</button></div>}
+          {success && <div className="success" role="status">{success}</div>}
+          {undoSale && (
+            <div style={{ background: "var(--warning-light)", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 13 }}>
+              <span style={{ flex: 1 }}>Venda excluída</span>
+              <button onClick={undoDelete} className="small" style={{ background: "var(--warning)", color: "white", border: "none", fontWeight: 600 }}>Desfazer</button>
+            </div>
+          )}
+
+          {/* === CAIXA === */}
+          {tab === "caixa" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
+              <section className="panel">
+                <h2>Seu cardápio</h2>
+                {!data.products.some((p) => p.active) ? (
+                  <div className="empty"><Utensils size={40} /><h3>O primeiro lanche começa aqui</h3><p>Cadastre seus lanches para começar a vender.</p><button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button></div>
+                ) : (
+                  <div className="grid">
+                    {categories.map((cat) => (
+                      <div key={cat}>
+                        {categories.length > 1 && <h3 style={{ margin: "8px 0", color: "var(--muted-foreground)", fontSize: 13 }}>{cat}</h3>}
+                        <div className="grid">
+                          {data.products.filter((p) => p.active && p.category === cat).map((p) => (
+                            <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
+                              {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
+                              <strong>{p.name}</strong>
+                              <span className="hint">{p.description || "Preparado na hora"}</span>
+                              <b>{brl(p.price)}</b>
+                              {p.stock >= 0 && <span className="hint" style={{ color: p.stock === 0 ? "var(--danger)" : p.stock < 5 ? "var(--warning)" : undefined, fontWeight: p.stock < 5 ? 600 : undefined }}>{p.stock === 0 ? "ESGOTADO" : `${p.stock} em estoque`}</span>}
+                              <span className="hint">{p.stock === 0 ? "" : "+ Adicionar"}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <aside className="panel" style={{ position: "sticky", top: 80 }}>
+                <h2>Pedido atual</h2>
+                {!lines.length && <p className="hint">Adicione os lanches do cliente.</p>}
+                {lines.map(({ p, qty }) => (
+                  <div className="row" key={p.id}>
+                    <div><strong>{p.name}</strong><small>{brl(p.price * qty)}</small></div>
+                    <div className="controls">
+                      <button className="small" disabled={busy} onClick={() => quantity(p.id, -1)}>−</button>
+                      <span>{qty}</span>
+                      <button className="small" disabled={busy} onClick={() => quantity(p.id, 1)}>+</button>
+                    </div>
+                  </div>
+                ))}
+                <div className="total"><span>Total</span><strong>{brl(total)}</strong></div>
+
+                {data.totals.revenue > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
+                      <span>Meta diária</span>
+                      <span>{brl(data.totals.revenue)} / {brl(dailyGoal)}</span>
+                    </div>
+                    <div style={{ background: "var(--border)", borderRadius: 4, height: 8 }}>
+                      <div style={{ background: data.totals.revenue >= dailyGoal ? "var(--success)" : "var(--primary)", height: 8, borderRadius: 4, width: `${Math.min(100, (data.totals.revenue / dailyGoal) * 100)}%`, transition: "width 0.3s" }} />
+                    </div>
+                  </div>
+                )}
+
+                <label>Cupom de desconto</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="CÓDIGO" style={{ flex: 1, fontSize: 13, textTransform: "uppercase" }} />
+                  <button className="small" disabled={busy} onClick={async () => {
+                    if (!couponCode) return;
+                    try {
+                      const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply-coupon", code: couponCode, subtotal: total }) });
+                      const d = await r.json();
+                      if (!r.ok) throw Error(d.error);
+                      setDiscount(d.discount);
+                      setSuccess(`Cupom aplicado! -${brl(d.discount)}`);
+                    } catch (e) { setError((e as Error).message); }
+                  }}>Aplicar</button>
+                </div>
+                {discount > 0 && <p className="hint" style={{ color: "var(--success)" }}>Desconto: -{brl(discount)} <button className="small" onClick={() => { setDiscount(0); setCouponCode(""); }} style={{ padding: "2px 6px", fontSize: 11 }}>remover</button></p>}
+
+                <label>Observação</label>
+                <input value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" />
+
+                <p style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: ".5px" }}>Pagamento</p>
+                <div style={{ display: "flex", gap: 8, margin: "8px 0" }}>
+                  {["Pix", "Dinheiro", "Cartão"].map((v) => (
+                    <button key={v} type="button" disabled={busy} onClick={() => { setPayment(v); saleId.current = ""; }}
+                      style={{ flex: 1, padding: "12px 8px", borderRadius: 8, border: payment === v ? "2px solid var(--primary)" : "1px solid var(--input)", background: payment === v ? "var(--primary-light)" : "var(--card)", color: payment === v ? "var(--primary)" : "var(--foreground)", fontWeight: payment === v ? 700 : 400, cursor: busy ? "not-allowed" : "pointer", fontSize: 13, transition: "all .15s" }}>
+                      {v === "Pix" && "⚡ "}{v === "Dinheiro" && "💵 "}{v === "Cartão" && "💳 "}{v}
+                    </button>
+                  ))}
+                </div>
+
+                {payment === "Dinheiro" && (<><label>Valor recebido (R$)</label><input inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" /></>)}
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+                  <div>
+                    <label>Gorjeta (R$)</label>
+                    <input inputMode="decimal" value={tip} disabled={busy} onChange={(e) => setTip(e.target.value)} placeholder="0,00" />
+                  </div>
+                  <div>
+                    <label>Dividir entre</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button className="small" disabled={busy || split <= 1} onClick={() => setSplit((s) => s - 1)}>−</button>
+                      <span style={{ fontWeight: 700, fontSize: 18 }}>{split}</span>
+                      <button className="small" disabled={busy || split >= 20} onClick={() => setSplit((s) => s + 1)}>+</button>
+                      <span className="hint">= {brl(Math.ceil((total - discount + (tip ? cents(tip) : 0)) / split))}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button className="primary" style={{ width: "100%", marginTop: 16, padding: "14px 24px", fontSize: 15 }} disabled={busy || !lines.length} onClick={() => void checkout()}>
+                  {busy ? "Finalizando…" : `Finalizar · ${brl(total)}`}
+                </button>
+              </aside>
+            </div>
+          )}
+
+          {/* === LANCHES === */}
+          {tab === "lanches" && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Cardápio</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Seus lanches, do seu jeito.</p></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <a href="/api/export?type=products" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
+                  <span className="badge">{data.products.filter((p) => p.active).length} disponíveis</span>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
+                <section className="panel">
+                  <h2>Lanches cadastrados</h2>
+                  {!data.products.length && <p className="hint">Nenhum lanche cadastrado.</p>}
+                  {data.products.map((p) => (
+                    <div className="row" key={p.id}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
+                        {p.photo && <img src={p.photo} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }} />}
+                        <div>
+                          <strong>{p.name}</strong> <small style={{ background: "var(--muted)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{p.category}</small>
+                          <small>{p.description}</small>
+                          <b>{brl(p.price)}</b>
+                          <small>{p.active ? (p.stock >= 0 ? `Estoque: ${p.stock}` : "Disponível") : "Pausado"}</small>
+                        </div>
+                      </div>
+                      <div className="controls">
+                        <button className="small" disabled={busy} onClick={() => { setProduct({ ...p, price: (p.price / 100).toFixed(2).replace(".", ","), stock: String(p.stock), cost: p.cost ? (p.cost / 100).toFixed(2).replace(".", ",") : "" }); productId.current = p.id; }}><Edit size={14} /></button>
+                        <button className="small" disabled={busy} onClick={() => void toggleProduct(p)}>{p.active ? "Pausar" : "Ativar"}</button>
+                        <button className="small" disabled={busy} onClick={() => void deleteProduct(p.id)} style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </section>
+                </section>
 
-            <aside className="panel">
-              <h2>Pedido atual</h2>
-              {!lines.length && <p className="hint">Adicione os lanches do cliente.</p>}
-              {lines.map(({ p, qty }) => (
-                <div className="row" key={p.id}>
-                  <div><strong>{p.name}</strong><small>{brl(p.price * qty)}</small></div>
-                  <div className="controls">
-                    <button className="small" disabled={busy} onClick={() => quantity(p.id, -1)}>−</button>
-                    <span>{qty}</span>
-                    <button className="small" disabled={busy} onClick={() => quantity(p.id, 1)}>+</button>
-                  </div>
-                </div>
-              ))}
-              <div className="total"><span>Total</span><strong>{brl(total)}</strong></div>
-
-              {data.totals.revenue > 0 && (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#657184", marginBottom: 4 }}>
-                    <span>Meta diária</span>
-                    <span>{brl(data.totals.revenue)} / {brl(dailyGoal)}</span>
-                  </div>
-                  <div style={{ background: "#e9edf2", borderRadius: 4, height: 8 }}>
-                    <div style={{ background: data.totals.revenue >= dailyGoal ? "#16a34a" : "#d84416", height: 8, borderRadius: 4, width: `${Math.min(100, (data.totals.revenue / dailyGoal) * 100)}%`, transition: "width 0.3s" }} />
-                  </div>
-                </div>
-              )}
-
-              <label>Cupom de desconto</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="CÓDIGO" style={{ flex: 1, fontSize: 13, padding: "8px 10px", textTransform: "uppercase" }} />
-                <button className="small" disabled={busy} onClick={async () => {
-                  if (!couponCode) return;
-                  try {
-                    const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply-coupon", code: couponCode, subtotal: total }) });
-                    const d = await r.json();
-                    if (!r.ok) throw Error(d.error);
-                    setDiscount(d.discount);
-                    setSuccess(`Cupom aplicado! -${brl(d.discount)}`);
-                  } catch (e) { setError((e as Error).message); }
-                }}>Aplicar</button>
+                <form className="panel" onSubmit={saveProduct}>
+                  <h2>{product.id ? "Editar lanche" : "Cadastrar lanche"}</h2>
+                  <label>Nome do lanche</label>
+                  <input required maxLength={150} disabled={busy} value={product.name} onChange={(e) => setProduct({ ...product, name: e.target.value })} placeholder="Ex.: X-salada" />
+                  <label>Ingredientes / descrição</label>
+                  <textarea maxLength={500} disabled={busy} value={product.description} onChange={(e) => setProduct({ ...product, description: e.target.value })} placeholder="Pão, hambúrguer, queijo…" />
+                  <label>Preço de venda (R$)</label>
+                  <input required inputMode="decimal" disabled={busy} value={product.price} onChange={(e) => setProduct({ ...product, price: e.target.value })} placeholder="18,50" />
+                  <label>Custo do lanche (R$) — para lucro</label>
+                  <input inputMode="decimal" disabled={busy} value={product.cost} onChange={(e) => setProduct({ ...product, cost: e.target.value })} placeholder="8,00" />
+                  <label>Categoria</label>
+                  <input disabled={busy} value={product.category} onChange={(e) => setProduct({ ...product, category: e.target.value })} placeholder="Ex.: Lanches, Bebidas, Porções" />
+                  <label>Estoque (-1 = ilimitado)</label>
+                  <input inputMode="numeric" disabled={busy} value={product.stock} onChange={(e) => setProduct({ ...product, stock: e.target.value })} placeholder="-1" />
+                  <label>Foto do lanche</label>
+                  <input ref={productPhotoInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} />
+                  <button className="primary" style={{ marginTop: 16, width: "100%" }} disabled={busy}>{busy ? "Salvando…" : "Salvar lanche"}</button>
+                  {product.id && <button type="button" className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => { setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" }); productId.current = ""; }}>Cancelar</button>}
+                </form>
               </div>
-              {discount > 0 && <p className="hint" style={{ color: "#16a34a" }}>Desconto: -{brl(discount)} <button className="small" onClick={() => { setDiscount(0); setCouponCode(""); }} style={{ padding: "2px 6px", fontSize: 11 }}>remover</button></p>}
+            </>
+          )}
 
-              <label>Observação</label>
-              <input value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" style={{ fontSize: 13, padding: "8px 10px" }} />
-
-              <p id="payment-label" style={{ marginTop: 12 }}>Forma de pagamento</p>
-              <div style={{ display: "flex", gap: 8, margin: "8px 0" }}>
-                {["Pix", "Dinheiro", "Cartão"].map((v) => (
-                  <button key={v} type="button" disabled={busy} onClick={() => { setPayment(v); saleId.current = ""; }}
-                    style={{
-                      flex: 1, padding: "12px 8px", borderRadius: 8, border: payment === v ? "2px solid #d84416" : "1px solid #dce2e8",
-                      background: payment === v ? "#fff0e7" : "white", color: payment === v ? "#d84416" : "#1d2532",
-                      fontWeight: payment === v ? 700 : 400, cursor: busy ? "not-allowed" : "pointer", fontSize: 14,
-                      transition: "all .15s",
-                    }}>
-                    {v === "Pix" && "⚡ "}{v === "Dinheiro" && "💵 "}{v === "Cartão" && "💳 "}{v}
-                  </button>
-                ))}
-              </div>
-
-              {payment === "Dinheiro" && (<><label htmlFor="received" style={{ fontSize: 13, fontWeight: 600 }}>Valor recebido (R$)</label><input id="received" inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" style={{ fontSize: 16, padding: "10px 12px" }} /></>)}
-
-              <div className="fieldgrid" style={{ marginTop: 8 }}>
-                <div>
-                  <label>Gorjeta (R$)</label>
-                  <input inputMode="decimal" value={tip} disabled={busy} onChange={(e) => setTip(e.target.value)} placeholder="0,00" style={{ fontSize: 13, padding: "8px 10px" }} />
-                </div>
-                <div>
-                  <label>Dividir entre</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <button className="small" disabled={busy || split <= 1} onClick={() => setSplit((s) => s - 1)}>−</button>
-                    <span style={{ fontWeight: 700, fontSize: 18 }}>{split}</span>
-                    <button className="small" disabled={busy || split >= 20} onClick={() => setSplit((s) => s + 1)}>+</button>
-                    <span className="hint">= {brl(Math.ceil((total - discount + (tip ? cents(tip) : 0)) / split))}</span>
-                  </div>
+          {/* === GASTOS === */}
+          {tab === "gastos" && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Gastos</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Comprovante salvo. Gasto organizado.</p></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <a href="/api/export?type=expenses" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
+                  <span className="badge">{brl(data.totals.costs)} no período</span>
                 </div>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
+                <form className="panel" onSubmit={saveExpense}>
+                  <h2>Registrar gasto</h2>
+                  <div className="fieldgrid">
+                    <div><label>Mercado / descrição</label><input required maxLength={150} disabled={busy} value={merchant} onChange={(e) => setMerchant(e.target.value)} placeholder="Ex.: Mercado do bairro" /></div>
+                    <div><label>Data da compra</label><input type="date" required disabled={busy} value={expenseDay} onChange={(e) => setExpenseDay(e.target.value)} /></div>
+                  </div>
+                  <label>Valor total (R$)</label>
+                  <input required inputMode="decimal" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" />
+                  <label><Camera size={18} style={{ display: "inline" }} /> Foto do comprovante</label>
+                  <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(e) => selectPhoto(e.target.files?.[0])} />
+                  <p className="notice">JPG, PNG ou WebP, até 8 MB. Opcional.</p>
+                  {photoUrl && <img src={photoUrl} alt="Prévia" className="receipt" />}
+                  <button className="primary" style={{ marginTop: 16, width: "100%" }} disabled={busy}>{busy ? "Salvando…" : "Salvar gasto"}</button>
+                </form>
+                <aside className="panel">
+                  <h2>Gastos no período</h2>
+                  {!data.expenses.length && <p className="hint">Nenhum gasto no período.</p>}
+                  {data.expenses.map((e) => (
+                    <div className="row" key={e.id}>
+                      <div>
+                        <strong>{e.merchant}</strong>
+                        <small>{e.day.split("-").reverse().join("/")}</small>
+                        {e.receipt && <a href={"/api/receipt?id=" + e.id} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>Ver comprovante</a>}
+                      </div>
+                      <b>{brl(e.amount)}</b>
+                    </div>
+                  ))}
+                </aside>
+              </div>
+            </>
+          )}
 
-              <button style={{ marginTop: 16 }} disabled={busy || !lines.length} onClick={() => void checkout()}>
-                {busy ? "Finalizando…" : "Finalizar pedido"}
-              </button>
-            </aside>
-          </div>
-        </TabsContent>
+          {/* === GESTÃO === */}
+          {tab === "gestao" && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Gestão</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Seu negócio em números.</p></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <a href={`/api/report?from=${from}&to=${to}`} target="_blank" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><FileText size={14} /> Relatório</a>
+                  <a href={`/api/export?type=sales&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Vendas</a>
+                  <a href={`/api/export?type=expenses&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Gastos</a>
+                </div>
+              </div>
+              <section className="panel" style={{ marginBottom: 20 }}><div className="fieldgrid">
+                <div><label>De</label><input type="date" value={from} onChange={(e) => { if (e.target.value) setFrom(e.target.value); }} /></div>
+                <div><label>Até</label><input type="date" value={to} onChange={(e) => { if (e.target.value) setTo(e.target.value); }} /></div>
+              </div></section>
+              <div className="stats">
+                <section className="panel"><span className="summary-label">Vendas</span><strong>{brl(data.totals.revenue)}</strong><p className="hint">{data.totals.count} vendas</p></section>
+                <section className="panel"><span className="summary-label">Gastos</span><strong>{brl(data.totals.costs)}</strong><p className="hint">{data.expenses.length} registros</p></section>
+                <section className="panel" style={{ background: "var(--foreground)", color: "var(--card)" }}><span style={{ opacity: .6 }}>Saldo</span><strong>{brl(data.totals.revenue - data.totals.costs)}</strong><p style={{ opacity: .5, fontSize: 12 }}>Vendas - Gastos</p></section>
+              </div>
 
-        {/* === LANCHES === */}
-        <TabsContent value="lanches">
-          <div className="heading"><div><p>CARDÁPIO</p><h1>Seus lanches, do seu jeito.</h1></div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <a href="/api/export?type=products" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
-              <span className="badge">{data.products.filter((p) => p.active).length} disponíveis</span>
-            </div>
-          </div>
-          <div className="columns">
-            <section className="panel">
-              <h2>Lanches cadastrados</h2>
-              {!data.products.length && <p className="hint">Nenhum lanche cadastrado.</p>}
-              {data.products.map((p) => (
-                <div className="row" key={p.id}>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
-                    {p.photo && <img src={p.photo} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }} />}
+              <section className="panel history">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h2>Histórico de vendas</h2>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Buscar…" style={{ padding: "6px 10px", fontSize: 13, width: 160 }} />
+                    <span className="hint">Pág. {page}</span>
+                    {page > 1 && <button className="small" onClick={() => setPage((p) => p - 1)}>Anterior</button>}
+                    {data.sales.length >= 200 && <button className="small" onClick={() => setPage((p) => p + 1)}>Próxima</button>}
+                  </div>
+                </div>
+                {!data.sales.length && <p className="hint">Nenhuma venda no período.</p>}
+                {data.sales.map((s) => (
+                  <div className="row" key={s.id}>
                     <div>
-                      <strong>{p.name}</strong> <small style={{ background: "#f3f5f7", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{p.category}</small>
-                      <small>{p.description}</small>
-                      <b>{brl(p.price)}</b>
-                      <small>{p.active ? (p.stock >= 0 ? `Estoque: ${p.stock}` : "Disponível") : "Pausado"}</small>
+                      <strong>{new Date(s.created).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong>
+                      <small>{JSON.parse(s.lines).map((x: any) => `${x.qty}× ${x.name}`).join(" · ")}</small>
+                      <small>{s.payment}{s.payment === "Dinheiro" ? ` · Troco ${brl(s.received - s.total)}` : ""}{s.employee ? ` · ${s.employee}` : ""}{s.note ? ` · ${s.note}` : ""}</small>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <b>{brl(s.total)}</b>
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => printRecibo(s)} title="Imprimir recibo"><Printer size={14} /></button>
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => void deleteSale(s.id)} style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <div className="controls">
-                    <button className="small" disabled={busy} onClick={() => { setProduct({ ...p, price: (p.price / 100).toFixed(2).replace(".", ","), stock: String(p.stock), cost: p.cost ? (p.cost / 100).toFixed(2).replace(".", ",") : "" }); productId.current = p.id; }}><Edit size={14} /></button>
-                    <button className="small" disabled={busy} onClick={() => void toggleProduct(p)}>{p.active ? "Pausar" : "Ativar"}</button>
-                    <button className="small" disabled={busy} onClick={() => void deleteProduct(p.id)} style={{ color: "#c32626" }}><Trash2 size={14} /></button>
-                  </div>
-                </div>
-              ))}
-            </section>
+                ))}
+              </section>
+            </>
+          )}
 
-            <form className="panel" onSubmit={saveProduct}>
-              <h2>{product.id ? "Editar lanche" : "Cadastrar lanche"}</h2>
-              <label>Nome do lanche</label>
-              <input required maxLength={150} disabled={busy} value={product.name} onChange={(e) => setProduct({ ...product, name: e.target.value })} placeholder="Ex.: X-salada" />
-              <label>Ingredientes / descrição</label>
-              <textarea maxLength={500} disabled={busy} value={product.description} onChange={(e) => setProduct({ ...product, description: e.target.value })} placeholder="Pão, hambúrguer, queijo…" />
-              <label>Preço de venda (R$)</label>
-              <input required inputMode="decimal" disabled={busy} value={product.price} onChange={(e) => setProduct({ ...product, price: e.target.value })} placeholder="18,50" />
-              <label>Custo do lanche (R$) — para lucro</label>
-              <input inputMode="decimal" disabled={busy} value={product.cost} onChange={(e) => setProduct({ ...product, cost: e.target.value })} placeholder="8,00" />
-              <label>Categoria</label>
-              <input disabled={busy} value={product.category} onChange={(e) => setProduct({ ...product, category: e.target.value })} placeholder="Ex.: Lanches, Bebidas, Porções" />
-              <label>Estoque (-1 = ilimitado)</label>
-              <input inputMode="numeric" disabled={busy} value={product.stock} onChange={(e) => setProduct({ ...product, stock: e.target.value })} placeholder="-1" />
-              <label>Foto do lanche</label>
-              <input ref={productPhotoInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} />
-              <button style={{ marginTop: 16 }} disabled={busy}>{busy ? "Salvando…" : "Salvar lanche"}</button>
-              {product.id && <button type="button" className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => { setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" }); productId.current = ""; }}>Cancelar</button>}
-            </form>
-          </div>
-        </TabsContent>
+          {/* === DASHBOARD === */}
+          {tab === "dashboard" && (
+            <Dashboard from={from} to={to} branch={selectedBranch} />
+          )}
 
-        {/* === GASTOS === */}
-        <TabsContent value="gastos">
-          <div className="heading"><div><p>COMPRAS E DESPESAS</p><h1>Comprovante salvo. Gasto organizado.</h1></div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <a href="/api/export?type=expenses" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
-              <span className="badge">{brl(data.totals.costs)} no período</span>
-            </div>
-          </div>
-          <div className="columns">
-            <form className="panel" onSubmit={saveExpense}>
-              <h2>Registrar gasto</h2>
-              <div className="fieldgrid">
-                <div><label>Mercado / descrição</label><input required maxLength={150} disabled={busy} value={merchant} onChange={(e) => setMerchant(e.target.value)} placeholder="Ex.: Mercado do bairro" /></div>
-                <div><label>Data da compra</label><input type="date" required disabled={busy} value={expenseDay} onChange={(e) => setExpenseDay(e.target.value)} /></div>
+          {/* === CONFIG === */}
+          {tab === "config" && currentUser.role === "admin" && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Configurações</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Gerenciar sistema.</p></div>
               </div>
-              <label>Valor total (R$)</label>
-              <input required inputMode="decimal" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" />
-              <label><Camera size={18} style={{ display: "inline" }} /> Foto do comprovante</label>
-              <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(e) => selectPhoto(e.target.files?.[0])} />
-              <p className="notice">JPG, PNG ou WebP, até 8 MB. Opcional.</p>
-              {photoUrl && <img src={photoUrl} alt="Prévia" className="receipt" />}
-              <button style={{ marginTop: 16 }} disabled={busy}>{busy ? "Salvando…" : "Salvar gasto"}</button>
-            </form>
-            <aside className="panel">
-              <h2>Gastos no período</h2>
-              <p className="notice">{from.split("-").reverse().join("/")} até {to.split("-").reverse().join("/")}</p>
-              {!data.expenses.length && <p className="hint">Nenhum gasto no período.</p>}
-              {data.expenses.map((e) => (
-                <div className="row" key={e.id}>
-                  <div>
-                    <strong>{e.merchant}</strong>
-                    <small>{e.day.split("-").reverse().join("/")}</small>
-                    {e.receipt && <a href={"/api/receipt?id=" + e.id} target="_blank" rel="noopener noreferrer" style={{ color: "#d84416" }}>Ver comprovante</a>}
-                  </div>
-                  <b>{brl(e.amount)}</b>
-                </div>
-              ))}
-            </aside>
-          </div>
-        </TabsContent>
-
-        {/* === GESTÃO === */}
-        <TabsContent value="gestao">
-          <div className="heading"><div><p>VISÃO GERAL</p><h1>Seu negócio em números.</h1></div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <a href={`/api/report?from=${from}&to=${to}`} target="_blank" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><FileText size={14} /> Relatório</a>
-              <a href={`/api/export?type=sales&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Vendas</a>
-              <a href={`/api/export?type=expenses&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Gastos</a>
-            </div>
-          </div>
-          <section className="panel"><div className="fieldgrid">
-            <div><label>De</label><input type="date" value={from} onChange={(e) => { if (e.target.value) setFrom(e.target.value); }} /></div>
-            <div><label>Até</label><input type="date" value={to} onChange={(e) => { if (e.target.value) setTo(e.target.value); }} /></div>
-          </div></section>
-          <div className="stats">
-            <section className="panel"><span className="summary-label">Vendas</span><strong>{brl(data.totals.revenue)}</strong><p className="hint">{data.totals.count} vendas</p></section>
-            <section className="panel"><span className="summary-label">Gastos</span><strong>{brl(data.totals.costs)}</strong><p className="hint">{data.expenses.length} registros</p></section>
-            <section className="panel" style={{ background: "#1d2532", color: "white" }}><span>Saldo</span><strong>{brl(data.totals.revenue - data.totals.costs)}</strong><p className="notice" style={{ color: "#c7d0de" }}>Vendas - Gastos</p></section>
-          </div>
-
-          <section className="panel history">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2>Histórico de vendas</h2>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Buscar…" style={{ padding: "6px 10px", fontSize: 13, width: 160 }} />
-                <span className="hint">Pág. {page}</span>
-                {page > 1 && <button className="small" onClick={() => setPage((p) => p - 1)}>Anterior</button>}
-                {data.sales.length >= 200 && <button className="small" onClick={() => setPage((p) => p + 1)}>Próxima</button>}
+              <div className="stats">
+                <section className="panel">
+                  <h2>Filiais</h2>
+                  {branches.map((b) => <div className="row" key={b.id}><strong>{b.name}</strong></div>)}
+                  {showNewBranch ? (
+                    <div style={{ marginTop: 12 }}>
+                      <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} placeholder="Nome da filial" />
+                      <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={async () => { await save({ action: "create-branch", name: newBranchName }); setShowNewBranch(false); setNewBranchName(""); const d = await fetch("/api/records?action=branches").then((r) => r.json()); setBranches(d.branches); setSuccess("Filial criada!"); }}>Salvar</button>
+                    </div>
+                  ) : <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => setShowNewBranch(true)}><Plus size={14} /> Nova filial</button>}
+                </section>
+                <section className="panel">
+                  <h2>Funcionários</h2>
+                  {showNewUser ? (
+                    <div>
+                      <label>Nome</label><input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+                      <label>Usuário</label><input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
+                      <label>Senha</label><input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+                      <label>Cargo</label>
+                      <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+                        <option value="caixa">Caixa</option>
+                        <option value="gerente">Gerente</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={async () => { await save({ action: "create-user", ...newUser }); setShowNewUser(false); setNewUser({ username: "", password: "", name: "", role: "caixa" }); setSuccess("Funcionário criado!"); }}>Salvar</button>
+                    </div>
+                  ) : <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => setShowNewUser(true)}><Plus size={14} /> Novo funcionário</button>}
+                </section>
+                <section className="panel">
+                  <h2>Senhas padrão</h2>
+                  <p className="hint">Admin: admin / admin123</p>
+                  <p className="hint">Altere a senha do admin após o primeiro login!</p>
+                </section>
               </div>
-            </div>
-            {!data.sales.length && <p className="hint">Nenhuma venda no período.</p>}
-            {data.sales.map((s) => (
-              <div className="row" key={s.id}>
-                <div>
-                  <strong>{new Date(s.created).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong>
-                  <small>{JSON.parse(s.lines).map((x: any) => `${x.qty}× ${x.name}`).join(" · ")}</small>
-                  <small>{s.payment}{s.payment === "Dinheiro" ? ` · Troco ${brl(s.received - s.total)}` : ""}{s.employee ? ` · ${s.employee}` : ""}{s.note ? ` · ${s.note}` : ""}</small>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <b>{brl(s.total)}</b>
-                  <button className="small" onClick={() => printRecibo(s)} title="Imprimir recibo" style={{ padding: "4px 8px" }}><Printer size={14} /></button>
-                  <button className="small" onClick={() => void deleteSale(s.id)} style={{ color: "#c32626", padding: "4px 8px" }}><Trash2 size={14} /></button>
-                </div>
+              <div className="stats" style={{ marginTop: 16 }}>
+                <section className="panel">
+                  <h2>Backup / Restore</h2>
+                  <p className="hint" style={{ marginBottom: 12 }}>Exporte todos os dados ou importe de um backup anterior.</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn btn-outline btn-sm" onClick={async () => {
+                      const r = await fetch("/api/records?action=records&from=2000-01-01&to=2099-12-31&limit=99999");
+                      const d = await r.json();
+                      const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url; a.download = `central-lanches-backup-${today()}.json`; a.click();
+                      URL.revokeObjectURL(url);
+                      toastHook.toast("success", "Backup exportado!");
+                    }}><Download size={14} /> Exportar JSON</button>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: "pointer" }}>
+                      <input type="file" accept=".json" style={{ display: "none" }} onChange={async (e) => {
+                        const file = e.target.files?.[0]; if (!file) return;
+                        const text = await file.text();
+                        try { const d = JSON.parse(text); await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "import", data: d }) }); toastHook.toast("success", "Backup restaurado!"); await refresh(); }
+                        catch { toastHook.toast("error", "Arquivo inválido."); }
+                      }} />
+                      <Package size={14} /> Importar JSON
+                    </label>
+                  </div>
+                </section>
+                <section className="panel">
+                  <h2>Atalhos de Teclado</h2>
+                  <div style={{ fontSize: 13, lineHeight: 2 }}>
+                    <div><kbd>F2</kbd> Caixa</div>
+                    <div><kbd>F3</kbd> Lanches</div>
+                    <div><kbd>F4</kbd> Gastos</div>
+                    <div><kbd>F5</kbd> Gestão</div>
+                    <div><kbd>F6</kbd> Dashboard</div>
+                    <div><kbd>Esc</kbd> Limpar campos</div>
+                  </div>
+                </section>
               </div>
-            ))}
-          </section>
-        </TabsContent>
-
-        {/* === DASHBOARD === */}
-        <TabsContent value="dashboard">
-          <DashboardPanel from={from} to={to} branch={selectedBranch} />
-        </TabsContent>
-
-        {/* === CONFIG === */}
-        {currentUser.role === "admin" && (
-          <TabsContent value="config">
-            <div className="heading"><div><p>CONFIGURAÇÕES</p><h1>Gerenciar sistema.</h1></div></div>
-            <div className="stats">
-              <section className="panel">
-                <h2>Filiais</h2>
-                {branches.map((b) => <div className="row" key={b.id}><strong>{b.name}</strong></div>)}
-                {showNewBranch ? (
-                  <div style={{ marginTop: 12 }}>
-                    <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} placeholder="Nome da filial" />
-                    <button style={{ marginTop: 8 }} onClick={async () => { await save({ action: "create-branch", name: newBranchName }); setShowNewBranch(false); setNewBranchName(""); const d = await fetch("/api/records?action=branches").then((r) => r.json()); setBranches(d.branches); setSuccess("Filial criada!"); }}>Salvar</button>
-                  </div>
-                ) : <button className="small" style={{ marginTop: 12 }} onClick={() => setShowNewBranch(true)}><Plus size={14} /> Nova filial</button>}
-              </section>
-              <section className="panel">
-                <h2>Funcionários</h2>
-                {showNewUser ? (
-                  <div>
-                    <label>Nome</label><input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
-                    <label>Usuário</label><input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
-                    <label>Senha</label><input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
-                    <label>Cargo</label>
-                    <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
-                      <option value="caixa">Caixa</option>
-                      <option value="gerente">Gerente</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    <button style={{ marginTop: 12 }} onClick={async () => { await save({ action: "create-user", ...newUser }); setShowNewUser(false); setNewUser({ username: "", password: "", name: "", role: "caixa" }); setSuccess("Funcionário criado!"); }}>Salvar</button>
-                  </div>
-                ) : <button className="small" style={{ marginTop: 12 }} onClick={() => setShowNewUser(true)}><Plus size={14} /> Novo funcionário</button>}
-              </section>
-              <section className="panel">
-                <h2>Senhas padrão</h2>
-                <p className="hint">Admin: admin / admin123</p>
-                <p className="hint">Altere a senha do admin após o primeiro login!</p>
-              </section>
-            </div>
-            <div className="stats" style={{ marginTop: 16 }}>
-              <section className="panel">
-                <h2>Backup / Restore</h2>
-                <p className="hint" style={{ marginBottom: 12 }}>Exporte todos os dados ou importe de um backup anterior.</p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="small" onClick={async () => {
-                    const r = await fetch("/api/records?action=records&from=2000-01-01&to=2099-12-31&limit=99999");
-                    const d = await r.json();
-                    const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a"); a.href = url; a.download = `central-lanches-backup-${today()}.json`; a.click();
-                    URL.revokeObjectURL(url);
-                    toastHook.toast("success", "Backup exportado!");
-                  }}><Download size={14} /> Exportar JSON</button>
-                  <label className="small" style={{ cursor: "pointer" }}>
-                    <input type="file" accept=".json" style={{ display: "none" }} onChange={async (e) => {
-                      const file = e.target.files?.[0]; if (!file) return;
-                      const text = await file.text();
-                      try { const d = JSON.parse(text); await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "import", data: d }) }); toastHook.toast("success", "Backup restaurado!"); await refresh(); }
-                      catch { toastHook.toast("error", "Arquivo inválido."); }
-                    }} />
-                    <Package size={14} /> Importar JSON
-                  </label>
-                </div>
-              </section>
-              <section className="panel">
-                <h2>Atalhos de Teclado</h2>
-                <div style={{ fontSize: 13, lineHeight: 2 }}>
-                  <div><kbd>F2</kbd> Caixa</div>
-                  <div><kbd>F3</kbd> Lanches</div>
-                  <div><kbd>F4</kbd> Gastos</div>
-                  <div><kbd>F5</kbd> Gestão</div>
-                  <div><kbd>F6</kbd> Dashboard</div>
-                  <div><kbd>Esc</kbd> Limpar campos</div>
-                </div>
-              </section>
-            </div>
-          </TabsContent>
-        )}
-      </Tabs>
-    </main>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function DashboardPanel({ from, to, branch }: { from: string; to: string; branch: string }) {
-  const [dash, setDash] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ action: "dashboard", from, to });
-    if (branch) params.set("branch", branch);
-    fetch("/api/records?" + params).then((r) => r.json()).then((d) => { setDash(d); setLoading(false); }).catch(() => setLoading(false));
-  }, [from, to, branch]);
-
-  if (loading) return <p className="notice">Carregando dashboard…</p>;
-  if (!dash) return <p className="error">Erro ao carregar dashboard.</p>;
-
-  const { totals, dailySales, paymentStats } = dash;
-
-  return (
-    <>
-      <div className="heading"><div><p>DASHBOARD</p><h1>Visão completa do negócio.</h1></div></div>
-      <div className="stats">
-        <section className="panel"><span className="summary-label">Receita total</span><strong>{brl(totals.revenue)}</strong><p className="hint">{totals.count} vendas</p></section>
-        <section className="panel"><span className="summary-label">Despesas</span><strong>{brl(totals.costs)}</strong></section>
-        <section className="panel" style={{ background: "#1d2532", color: "white" }}><span>Lucro estimado</span><strong>{brl(totals.revenue - totals.costs)}</strong></section>
-      </div>
-
-      <div className="stats">
-        <section className="panel">
-          <h2>Vendas por dia</h2>
-          {dailySales.length === 0 && <p className="hint">Sem dados no período.</p>}
-          {dailySales.map((d: any) => (
-            <div className="row" key={d.day}>
-              <strong>{d.day.split("-").reverse().join("/")}</strong>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ background: "#d84416", height: 8, borderRadius: 4, width: `${Math.min(100, (d.total / Math.max(...dailySales.map((x: any) => x.total))) * 100)}%`, minWidth: 4 }} />
-                <b>{brl(d.total)}</b>
-                <span className="hint">{d.count} vendas</span>
-              </div>
-            </div>
-          ))}
-        </section>
-        <section className="panel">
-          <h2>Formas de pagamento</h2>
-          {paymentStats.map((p: any) => (
-            <div className="row" key={p.payment}>
-              <strong>{p.payment}</strong>
-              <div><b>{brl(p.total)}</b> <span className="hint">({p.count} vendas)</span></div>
-            </div>
-          ))}
-        </section>
-      </div>
-    </>
-  );
-}
