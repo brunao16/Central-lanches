@@ -24,7 +24,7 @@ export default function LoginPage() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      localStorage.setItem("cl_token", d.token);
+      localStorage.removeItem("cl_token");
       localStorage.setItem("cl_user", JSON.stringify(d.user));
       router.push("/");
     } catch (err: any) {
@@ -83,10 +83,12 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label>Email</label>
+              <label htmlFor="login-user">Email ou usuário</label>
               <input
                 className={`form-input ${error ? "error" : ""}`}
-                type="email"
+                id="login-user"
+                type="text"
+                autoComplete="username"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -96,11 +98,13 @@ export default function LoginPage() {
             </div>
 
             <div className="form-group">
-              <label>Senha</label>
+              <label htmlFor="login-password">Senha</label>
               <div className="password-wrapper">
                 <input
                   className={`form-input ${error ? "error" : ""}`}
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="Sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

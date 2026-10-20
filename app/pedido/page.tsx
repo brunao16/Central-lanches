@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ShoppingBag, Plus, Minus, Send, Phone, MapPin } from "lucide-react";
 
 type Product = { id: string; name: string; description: string; price: number; active: number; photo: string | null; category: string; stock: number };
@@ -10,6 +10,7 @@ const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", c
 export default function PedidoPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [step, setStep] = useState<"menu" | "cart" | "info" | "done">("menu");
   const [name, setName] = useState("");
@@ -20,14 +21,15 @@ export default function PedidoPage() {
   const [orderType, setOrderType] = useState<"delivery" | "pickup" | "table">("table");
   const [busy, setBusy] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const requestId = useRef("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("table");
     if (t) { setTableNum(t); setOrderType("table"); }
-    fetch("/api/records?action=records&from=2000-01-01&to=2099-12-31")
-      .then(r => r.json()).then((d: any) => { setProducts(d.products.filter((p: Product) => p.active)); setLoading(false); })
-      .catch(() => setLoading(false));
+    fetch("/api/menu?" + new URLSearchParams({ branch: new URLSearchParams(window.location.search).get("branch") || "" }))
+      .then(async r => { const d = await r.json(); if (!r.ok) throw Error(d.error); return d; }).then((d: any) => { setProducts(d.products.filter((p: Product) => p.active)); setLoading(false); })
+      .catch(e => { setLoadError(e.message); setLoading(false); });
   }, []);
 
   const categories = Array.from(new Set(products.map(p => p.category)));
@@ -35,17 +37,20 @@ export default function PedidoPage() {
   const total = lines.reduce((s, x) => s + x.p.price * x.qty, 0);
 
   function quantity(id: string, delta: number) {
+    requestId.current = "";
     setCart(c => { const n = { ...c }; n[id] = Math.max(0, Math.min(99, (n[id] || 0) + delta)); if (!n[id]) delete n[id]; return n; });
   }
 
   async function sendOrder() {
+    if (busy || !lines.length) return;
     setBusy(true);
+    requestId.current ||= crypto.randomUUID();
     try {
       const items = lines.map(x => ({ id: x.p.id, name: x.p.name, price: x.p.price, qty: x.qty }));
-      const r = await fetch("/api/services", {
+      const r = await fetch("/api/public-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create-ticket", items, total, table_num: tableNum, note: note || null }),
+        body: JSON.stringify({ id: requestId.current, branch: new URLSearchParams(window.location.search).get("branch"), items, expectedTotal: total, table_num: tableNum, note: note || null, orderType, customerName: name, phone, address }),
       });
       const d = await r.json();
       if (!r.ok) throw Error(d.error);
@@ -55,6 +60,7 @@ export default function PedidoPage() {
     finally { setBusy(false); }
   }
 
+  if (loadError) return <div className="empty" role="alert"><h1>Cardápio indisponível</h1><p>{loadError}</p><button onClick={() => window.location.reload()}>Tentar novamente</button></div>;
   if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontFamily: "Arial" }}><p>Carregando cardápio…</p></div>;
 
   if (step === "done") return (
@@ -62,10 +68,10 @@ export default function PedidoPage() {
       <div style={{ background: "white", borderRadius: 16, padding: 32, textAlign: "center", maxWidth: 400 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
         <h1 style={{ fontSize: 22, marginBottom: 8 }}>Pedido Enviado!</h1>
-        <p style={{ color: "#657184", marginBottom: 16 }}>Seu pedido foi recebido e está sendo preparado.</p>
+        <p style={{ color: "#657184", marginBottom: 16 }}>Seu pedido foi recebido. Aguarde a confirmação do estabelecimento.</p>
         <p style={{ fontSize: 14, color: "#657184" }}>Código: <strong>#{orderId.slice(-6).toUpperCase()}</strong></p>
         {tableNum && <p style={{ fontSize: 14, color: "#657184" }}>Mesa: <strong>{tableNum}</strong></p>}
-        <button onClick={() => { setCart({}); setStep("menu"); setNote(""); }} style={{ marginTop: 20, background: "#d84416", color: "white", border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 16, cursor: "pointer" }}>Novo Pedido</button>
+        <button onClick={() => { requestId.current = ""; setCart({}); setStep("menu"); setNote(""); }} style={{ marginTop: 20, background: "#d84416", color: "white", border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 16, cursor: "pointer" }}>Novo Pedido</button>
       </div>
     </div>
   );

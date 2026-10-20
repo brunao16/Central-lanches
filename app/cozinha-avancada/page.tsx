@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChefHat, Clock, AlertTriangle, CheckCircle2, Flame } from "lucide-react";
 
-type Ticket = { id: string; items: string; status: string; priority: number; total: number; table_num: string; employee: string; created: string; started_at: string | null; ready_at: string | null; note: string | null };
+type Ticket = { id: string; items: string; status: string; priority: number; total: number; tableNum: string; employee: string; created: string; startedAt: string | null; readyAt: string | null; note: string | null };
 
 const priorityMap: Record<number, { label: string; color: string; bg: string }> = {
   0: { label: "Normal", color: "#657184", bg: "#f1f5f9" },
@@ -30,8 +30,8 @@ export default function CozinhaPage() {
     const i = setInterval(() => {
       setTimers(prev => {
         const next = { ...prev };
-        tickets.filter(t => t.status === "preparing" && t.started_at).forEach(t => {
-          next[t.id] = Math.floor((Date.now() - new Date(t.started_at!).getTime()) / 1000);
+        tickets.filter(t => t.status === "preparing" && t.startedAt).forEach(t => {
+          next[t.id] = Math.floor((Date.now() - new Date(t.startedAt!).getTime()) / 1000);
         });
         return next;
       });
@@ -90,7 +90,7 @@ export default function CozinhaPage() {
                   <strong style={{ fontSize: 14 }}>#{t.id.slice(-4).toUpperCase()}</strong>
                   <span style={{ background: p.bg, color: p.color, padding: "2px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{p.label}</span>
                 </div>
-                {t.table_num && <span style={{ fontSize: 12, color: "#999" }}>Mesa {t.table_num}</span>}
+                {t.tableNum && <span style={{ fontSize: 12, color: "#999" }}>Mesa {t.tableNum}</span>}
                 {t.note && <p style={{ fontSize: 12, color: "#f59e0b", marginTop: 4 }}>📝 {t.note}</p>}
                 <div style={{ margin: "8px 0" }}>
                   {items.map((it: any, i: number) => (
@@ -123,7 +123,7 @@ export default function CozinhaPage() {
                     <span style={{ fontFamily: "monospace", fontSize: 18, fontWeight: 700, color: isSlow ? "#c32626" : "#3b82f6" }}>{formatTimer(timer)}</span>
                   </div>
                 </div>
-                {t.table_num && <span style={{ fontSize: 12, color: "#999" }}>Mesa {t.table_num}</span>}
+                {t.tableNum && <span style={{ fontSize: 12, color: "#999" }}>Mesa {t.tableNum}</span>}
                 <div style={{ margin: "8px 0" }}>
                   {items.map((it: any, i: number) => (
                     <p key={i} style={{ fontSize: 13, padding: "2px 0" }}>{it.qty || 1}× {it.name}</p>
@@ -143,7 +143,7 @@ export default function CozinhaPage() {
             return (
               <div key={t.id} style={{ background: "#0f2818", borderRadius: 12, padding: 14, marginBottom: 10, borderLeft: "4px solid #16a34a", opacity: 0.8 }}>
                 <strong style={{ fontSize: 14 }}>#{t.id.slice(-4).toUpperCase()}</strong>
-                {t.table_num && <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>Mesa {t.table_num}</span>}
+                {t.tableNum && <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>Mesa {t.tableNum}</span>}
                 <div style={{ margin: "6px 0" }}>
                   {items.map((it: any, i: number) => (
                     <p key={i} style={{ fontSize: 12, color: "#aaa" }}>{it.qty || 1}× {it.name}</p>

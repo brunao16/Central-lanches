@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 type Product = { id: string; name: string; description: string; price: number; active: number; photo: string | null; category: string };
 
@@ -9,16 +9,18 @@ const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", c
 export default function CardapioPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    fetch("/api/records?action=records&from=2000-01-01&to=2099-12-31")
-      .then((r) => r.json())
+    fetch("/api/menu?" + new URLSearchParams({ branch: new URLSearchParams(window.location.search).get("branch") || "" }))
+      .then(async r => { const d = await r.json(); if (!r.ok) throw Error(d.error); return d; })
       .then((d: any) => { setProducts(d.products.filter((p: Product) => p.active)); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { setLoadError(e.message); setLoading(false); });
   }, []);
 
   const categories = Array.from(new Set(products.map((p) => p.category)));
 
+  if (loadError) return <div className="empty" role="alert"><h1>Cardápio indisponível</h1><p>{loadError}</p><button onClick={() => window.location.reload()}>Tentar novamente</button></div>;
   if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontFamily: "Arial" }}><p>Carregando cardápio…</p></div>;
 
   return (

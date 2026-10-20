@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, LogIn, LogOut, Calendar } from "lucide-react";
 
-type ClockRecord = { id: string; employee: string; clock_in: string; clock_out: string | null; branch: string; day: string };
+type ClockRecord = { id: string; employee: string; clockIn: string; clockOut: string | null; branch: string; day: string };
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v / 100);
 const now = () => new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
@@ -56,9 +56,9 @@ export default function PontoPage() {
       .then(r => r.json()).then(d => { setRecords(d.records || []); setLoading(false); });
   }
 
-  const activeRecord = records.find(r => !r.clock_out);
-  const totalHours = records.filter(r => r.clock_out).reduce((sum, r) => {
-    const diff = new Date(r.clock_out!).getTime() - new Date(r.clock_in).getTime();
+  const activeRecord = records.find(r => !r.clockOut);
+  const totalHours = records.filter(r => r.clockOut).reduce((sum, r) => {
+    const diff = new Date(r.clockOut!).getTime() - new Date(r.clockIn).getTime();
     return sum + diff / 3600000;
   }, 0);
 
@@ -103,8 +103,8 @@ export default function PontoPage() {
         {loading ? <p className="notice">Carregando…</p> : records.length === 0 ? (
           <p className="hint">Nenhuma batida hoje.</p>
         ) : records.map(r => {
-          const start = new Date(r.clock_in);
-          const end = r.clock_out ? new Date(r.clock_out) : null;
+          const start = new Date(r.clockIn);
+          const end = r.clockOut ? new Date(r.clockOut) : null;
           const hours = end ? ((end.getTime() - start.getTime()) / 3600000).toFixed(1) : "…";
 
           return (
@@ -115,7 +115,7 @@ export default function PontoPage() {
                   {start.toLocaleTimeString("pt-BR")} → {end ? end.toLocaleTimeString("pt-Br") : "Em aberto"}
                 </p>
               </div>
-              <span style={{ fontWeight: 700, color: r.clock_out ? "#16a34a" : "#f59e0b" }}>{hours}h</span>
+              <span style={{ fontWeight: 700, color: r.clockOut ? "#16a34a" : "#f59e0b" }}>{hours}h</span>
             </div>
           );
         })}

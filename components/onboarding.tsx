@@ -61,17 +61,20 @@ export default function Onboarding({ onComplete }: Props) {
       });
     });
 
+    try {
     for (const p of products) {
-      await fetch("/api/records", {
+      const response = await fetch("/api/records", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create-product", ...p, active: 1 }),
+        body: JSON.stringify({ ...p, action: "product", id: crypto.randomUUID(), price: Math.round(Number(p.price.replace(",", "."))*100), cost: Math.round(Number(p.cost.replace(",", "."))*100), stock: -1 }),
       });
+      if (!response.ok) throw new Error((await response.json()).error || "Não foi possível cadastrar o lanche.");
     }
 
     localStorage.setItem("cl_onboarded", "1");
     setSaving(false);
     onComplete();
+    } catch (error) { alert((error as Error).message); } finally { setSaving(false); }
   }
 
   const TYPE_LABELS: Record<string, string> = {

@@ -39,3 +39,8 @@ next-env.d.ts
 *.db-journal
 
 .vercel
+
+/work/
+
+/work/
+/.next-preview/

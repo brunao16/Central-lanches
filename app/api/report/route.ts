@@ -1,5 +1,7 @@
+import { escapeHtml } from "@/lib/format";
+import { withSession, requireAdmin, resolveBranch, HttpError, apiError } from "@/lib/session";
 import { NextResponse } from "next/server";
-import { and, gte, lte, desc, sql } from "drizzle-orm";
+import { and, gte, lte, desc, sql, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { sales, expenses } from "@/db/schema";
 
@@ -16,20 +18,23 @@ function brl(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v / 100);
 }
 
-export async function GET(req: Request) {
+export const GET = withSession(async (req, session) => {
   try {
+    requireAdmin(session);
     const u = new URL(req.url);
     const from = date(u.searchParams.get("from") || day().slice(0, 7) + "-01");
     const to = date(u.searchParams.get("to") || day());
     const db = getDb();
+    if (from > to) throw new HttpError(400,"Confira o período.");
+    const branch = await resolveBranch(session, u.searchParams.get("branch"), true);
 
     const [salesData, expensesData, totals] = await Promise.all([
-      db.select().from(sales).where(and(gte(sales.day, from), lte(sales.day, to))).orderBy(desc(sales.created)),
-      db.select().from(expenses).where(and(gte(expenses.day, from), lte(expenses.day, to))).orderBy(desc(expenses.day)),
+      db.select().from(sales).where(and(eq(sales.tenantId, session.tenantId), branch ? eq(sales.branch,branch) : undefined, isNull(sales.cancelledAt), and(gte(sales.day, from), lte(sales.day, to)))).orderBy(desc(sales.created)),
+      db.select().from(expenses).where(and(eq(expenses.tenantId, session.tenantId), branch ? eq(expenses.branch,branch) : undefined, and(gte(expenses.day, from), lte(expenses.day, to)))).orderBy(desc(expenses.day)),
       Promise.all([
-        db.select({ value: sql<number>`coalesce(sum(${sales.total}), 0)` }).from(sales).where(and(gte(sales.day, from), lte(sales.day, to))),
-        db.select({ value: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(gte(expenses.day, from), lte(expenses.day, to))),
-        db.select({ value: sql<number>`count(*)` }).from(sales).where(and(gte(sales.day, from), lte(sales.day, to))),
+        db.select({ value: sql<number>`coalesce(sum(${sales.total}), 0)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), branch ? eq(sales.branch,branch) : undefined, isNull(sales.cancelledAt), and(gte(sales.day, from), lte(sales.day, to)))),
+        db.select({ value: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.tenantId, session.tenantId), branch ? eq(expenses.branch,branch) : undefined, and(gte(expenses.day, from), lte(expenses.day, to)))),
+        db.select({ value: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), branch ? eq(sales.branch,branch) : undefined, isNull(sales.cancelledAt), and(gte(sales.day, from), lte(sales.day, to)))),
       ]),
     ]);
 
@@ -78,14 +83,14 @@ export async function GET(req: Request) {
     ${salesData.map((s) => {
       const items = JSON.parse(s.lines).map((x: any) => `${x.qty}x ${x.name}`).join(", ");
       const time = new Date(s.created).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-      return `<tr><td>${time}</td><td>${items}</td><td>${s.payment}</td><td>${brl(s.total)}</td><td>${s.payment === "Dinheiro" ? brl(s.received - s.total) : "-"}</td></tr>`;
+      return `<tr><td>${time}</td><td>${escapeHtml(items)}</td><td>${escapeHtml(s.payment)}</td><td>${brl(s.total)}</td><td>${s.payment === "Dinheiro" ? brl(s.received - s.total) : "-"}</td></tr>`;
     }).join("")}
   </table>
 
   <h2>Gastos (${expensesData.length})</h2>
   <table>
     <tr><th>Data</th><th>Fornecedor</th><th>Valor</th></tr>
-    ${expensesData.map((e) => `<tr><td>${e.day.split("-").reverse().join("/")}</td><td>${e.merchant}</td><td>${brl(e.amount)}</td></tr>`).join("")}
+    ${expensesData.map((e) => `<tr><td>${e.day.split("-").reverse().join("/")}</td><td>${escapeHtml(e.merchant)}</td><td>${brl(e.amount)}</td></tr>`).join("")}
   </table>
 
   <p class="footer">Gerado em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} - Central Lanches</p>
@@ -99,7 +104,8 @@ export async function GET(req: Request) {
       },
     });
   } catch (e) {
+    if (e instanceof HttpError) return apiError(e);
     console.error(e);
     return new NextResponse("Erro ao gerar relatório", { status: 500 });
   }
-}
+});

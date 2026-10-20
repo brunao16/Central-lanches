@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { QrCode, Plus, Trash2, Edit3, Users } from "lucide-react";
 
-type Table = { id: string; number: number; name: string; capacity: number; status: string; current_order: string | null; branch: string };
+type Table = { id: string; number: number; name: string; capacity: number; status: string; currentOrder: string | null; branch: string };
 
 const statusColor: Record<string, string> = { available: "#16a34a", occupied: "#c32626", reserved: "#f59e0b", cleaning: "#3b82f6" };
 const statusLabel: Record<string, string> = { available: "Livre", occupied: "Ocupada", reserved: "Reservada", cleaning: "Limpeza" };

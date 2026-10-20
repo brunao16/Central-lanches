@@ -1,5 +1,6 @@
+import { withSession, requireAdmin, resolveBranch, HttpError, apiError } from "@/lib/session";
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { sales } from "@/db/schema";
 
@@ -8,14 +9,13 @@ export const dynamic = "force-dynamic";
 function brl(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v / 100);
 }
-
-export async function POST(req: Request) {
+export const POST = withSession(async (req, session) => {
   try {
     const b = (await req.json()) as { saleId: string; phone?: string };
     if (!b.saleId) return NextResponse.json({ error: "ID da venda necessário." }, { status: 400 });
 
     const db = getDb();
-    const sale = await db.select().from(sales).where(eq(sales.id, b.saleId)).get();
+    const sale = await db.select().from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), eq(sales.id, b.saleId))).get();
     if (!sale) return NextResponse.json({ error: "Venda não encontrada." }, { status: 404 });
 
     const items = JSON.parse(sale.lines);
@@ -41,7 +41,8 @@ Obrigado pela preferência! 😊`;
 
     return NextResponse.json({ ok: true, url: whatsappUrl, message });
   } catch (e) {
+    if (e instanceof HttpError) return apiError(e);
     console.error(e);
     return NextResponse.json({ error: "Erro ao gerar comprovante." }, { status: 500 });
   }
-}
+});

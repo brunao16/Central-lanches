@@ -1,130 +1,46 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { users, branches } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { hashPassword, verifyPassword, createToken, getPlanFeatures } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { hashPassword, verifyPassword, createToken } from "@/lib/auth";
+import { apiError, HttpError, requireSession, checkOrigin } from "@/lib/session";
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { action } = body;
-  const db = getDb();
-
-  if (action === "login") {
-    if (!body.email || !body.password) {
-      return NextResponse.json({ error: "Preencha email e senha." }, { status: 400 });
+export async function POST(req: Request) {
+  try {
+    checkOrigin(req);
+    const body = await req.json();
+    if (body.action === "logout") {
+      const response = NextResponse.json({ ok: true });
+      response.cookies.set("cl_token", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+      return response;
     }
-    const user = await db.select().from(users).where(eq(users.username, body.email)).get();
-    if (!user) {
-      return NextResponse.json({ error: "Email ou senha incorretos." }, { status: 401 });
+    if (body.action === "me") {
+      const session = await requireSession(req);
+      return NextResponse.json({ ok: true, user: { ...session, id: session.userId } });
     }
-    const valid = await verifyPassword(body.password, user.password);
-    if (!valid) {
-      return NextResponse.json({ error: "Email ou senha incorretos." }, { status: 401 });
-    }
-    if (user.active !== 1) {
-      return NextResponse.json({ error: "Conta desativada. Entre em contato." }, { status: 403 });
-    }
-    const token = await createToken({
-      userId: user.id,
-      email: user.username,
-      role: user.role,
-      tenantId: user.branch,
-      plan: (user as any).plan || "basico",
-    });
-    const response = NextResponse.json({
-      ok: true,
-      token,
-      user: { id: user.id, name: user.name, role: user.role, email: user.username, plan: (user as any).plan || "basico" },
-    });
-    response.cookies.set("cl_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    const db = getDb();
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    if (!email || email.length > 254 || typeof body.password !== "string" || body.password.length > 72) throw new HttpError(400, "Confira o usuário e a senha (até 72 caracteres).");
+    let user;
+    if (body.action === "login") {
+      user = await db.select().from(users).where(eq(users.username, email)).get();
+      if (!user || !/^\$2[aby]\$/.test(user.password) || !await verifyPassword(body.password, user.password)) throw new HttpError(401, "Usuário ou senha incorretos.");
+      if (user.active !== 1 || !user.tenantId) throw new HttpError(403, "Conta indisponível. Contate o administrador.");
+    } else if (body.action === "register") {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || body.password.length < 8 || typeof body.name !== "string" || !body.name.trim() || body.name.length > 150 || typeof body.restaurantName !== "string" || !body.restaurantName.trim() || body.restaurantName.length > 150) throw new HttpError(400, "Preencha nome, estabelecimento e email válido. Use uma senha de 8 a 72 caracteres.");
+      const existing = await db.select({ id: users.id }).from(users).where(eq(users.username, email)).get();
+      if (existing) throw new HttpError(409, "Email já cadastrado.");
+      const tenantId = crypto.randomUUID(), branchId = crypto.randomUUID();
+      const password = await hashPassword(body.password);
+      user = await db.transaction(async tx => {
+        await tx.insert(branches).values({ id: branchId, tenantId, name: body.restaurantName.trim(), address: "", phone: "", active: 1 });
+        const [created] = await tx.insert(users).values({ id: crypto.randomUUID(), tenantId, username: email, password, name: body.name.trim(), role: "admin", branch: branchId, active: 1 }).returning();
+        return created;
+      });
+    } else throw new HttpError(400, "Ação inválida.");
+    const token = await createToken({ userId: user.id, email: user.username, role: user.role, tenantId: user.tenantId, plan: user.plan });
+    const response = NextResponse.json({ ok: true, user: { id: user.id, name: user.name, role: user.role, email: user.username, branch: user.branch, tenantId: user.tenantId, plan: user.plan } });
+    response.cookies.set("cl_token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
     return response;
-  }
-
-  if (action === "register") {
-    if (!body.email || !body.password || !body.name || !body.restaurantName) {
-      return NextResponse.json({ error: "Preencha todos os campos." }, { status: 400 });
-    }
-    if (body.password.length < 6) {
-      return NextResponse.json({ error: "Senha deve ter no mínimo 6 caracteres." }, { status: 400 });
-    }
-    const existing = await db.select().from(users).where(eq(users.username, body.email)).get();
-    if (existing) {
-      return NextResponse.json({ error: "Email já cadastrado." }, { status: 409 });
-    }
-    const tenantId = crypto.randomUUID();
-    const hashedPassword = await hashPassword(body.password);
-    const branchId = crypto.randomUUID();
-
-    await db.insert(branches).values({
-      id: branchId,
-      name: body.restaurantName,
-      address: "",
-      phone: "",
-      active: 1,
-    });
-
-    await db.insert(users).values({
-      id: crypto.randomUUID(),
-      username: body.email,
-      password: hashedPassword,
-      name: body.name,
-      role: "admin",
-      branch: branchId,
-      active: 1,
-    });
-
-    const user = await db.select().from(users).where(eq(users.username, body.email)).get();
-    if (!user) {
-      return NextResponse.json({ error: "Erro ao criar conta." }, { status: 500 });
-    }
-
-    const token = await createToken({
-      userId: user.id,
-      email: user.username,
-      role: user.role,
-      tenantId: branchId,
-      plan: "basico",
-    });
-
-    const response = NextResponse.json({
-      ok: true,
-      token,
-      user: { id: user.id, name: user.name, role: user.role, email: user.username, plan: "basico" },
-    });
-    response.cookies.set("cl_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-    return response;
-  }
-
-  if (action === "me") {
-    if (!body.token) {
-      return NextResponse.json({ error: "Token necessário." }, { status: 401 });
-    }
-    const { verifyToken } = await import("@/lib/auth");
-    const payload = await verifyToken(body.token);
-    if (!payload) {
-      return NextResponse.json({ error: "Token inválido." }, { status: 401 });
-    }
-    const user = await db.select().from(users).where(eq(users.id, payload.userId as string)).get();
-    if (!user) {
-      return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
-    }
-    return NextResponse.json({
-      ok: true,
-      user: { id: user.id, name: user.name, role: user.role, email: user.username, plan: (user as any).plan || "basico" },
-    });
-  }
-
-  return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
+  } catch (error) { return apiError(error); }
 }

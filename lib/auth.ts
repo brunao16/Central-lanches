@@ -1,7 +1,8 @@
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT } from "jose/jwt/sign";
+import { jwtVerify } from "jose/jwt/verify";
 import bcryptjs from "bcryptjs";
 
-const SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "central-lanches-secret-key-change-in-production-2024");
+import { jwtSecret } from "@/lib/jwt-secret";
 
 const PLAN_FEATURES: Record<string, { maxProducts: number; maxSales: number; features: string[] }> = {
   basico: { maxProducts: 50, maxSales: 500, features: ["caixa", "lanches", "gastos", "gestao"] },
@@ -22,12 +23,12 @@ export async function createToken(payload: { userId: string; email: string; role
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(SECRET);
+    .sign(jwtSecret());
 }
 
 export async function verifyToken(token: string): Promise<any> {
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, jwtSecret(), { algorithms: ["HS256"] });
     return payload;
   } catch {
     return null;

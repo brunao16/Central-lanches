@@ -1,384 +1,140 @@
 import { NextResponse } from "next/server";
-import { eq, and, gte, lte, sql, desc, like, or } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, like, or, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { products, sales, expenses, users, branches, coupons, loyalty, loyaltyTransactions } from "@/db/schema";
+import { products, sales, expenses, users, branches, coupons } from "@/db/schema";
+import { withSession, requireAdmin, resolveBranch, HttpError } from "@/lib/session";
+import { hashPassword } from "@/lib/auth";
+import { exportBackup, importBackup } from "@/lib/backup";
+import { checkout, cancelSale, priceCoupon, priceItems, day, date, validId, money, text } from "@/lib/checkout";
 
 export const dynamic = "force-dynamic";
+const json = (data: unknown) => NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
 
-const json = (data: unknown, status = 200) =>
-  NextResponse.json(data, {
-    status,
-    headers: { "Cache-Control": "no-store" },
-  });
-
-const day = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-
-const validId = (v: unknown) => typeof v === "string" && /^[a-zA-Z0-9-]{10,80}$/.test(v);
-
-function money(v: unknown) {
-  if (!Number.isSafeInteger(v) || Number(v) < 1 || Number(v) > 100000000) throw new Error("Informe um valor válido.");
-  return Number(v);
-}
-
-function name(v: unknown) {
-  if (typeof v !== "string" || !v.trim() || v.length > 150) throw new Error("Preencha o nome (até 150 caracteres).");
-  return v.trim();
-}
-
-function date(v: unknown) {
-  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v) || !Number.isFinite(Date.parse(v)) || new Date(v).toISOString().slice(0, 10) !== v)
-    throw new Error("Data inválida.");
-  return v;
-}
-
-export async function GET(req: Request) {
-  try {
-    const u = new URL(req.url);
-    const action = u.searchParams.get("action") || "records";
-    const db = getDb();
-
-    if (action === "records") {
-      const from = date(u.searchParams.get("from") || day().slice(0, 7) + "-01");
-      const to = date(u.searchParams.get("to") || day());
-      const branch = u.searchParams.get("branch") || "";
-      const search = u.searchParams.get("search") || "";
-      const page = parseInt(u.searchParams.get("page") || "1");
-      const limit = parseInt(u.searchParams.get("limit") || "200");
-      const offset = (page - 1) * limit;
-
-      if (from > to) return json({ error: "Confira o período." }, 400);
-
-      const conditions = [gte(sales.day, from), lte(sales.day, to)];
-      if (branch) conditions.push(eq(sales.branch, branch));
-      if (search) {
-        conditions.push(
-          or(
-            like(sales.lines, `%${search}%`),
-            like(sales.payment, `%${search}%`),
-            like(sales.employee, `%${search}%`)
-          )!
-        );
-      }
-
-      const [p, s, e] = await Promise.all([
-        db.select().from(products).orderBy(products.name),
-        db.select().from(sales).where(and(...conditions)).orderBy(desc(sales.created)).limit(limit).offset(offset),
-        db.select().from(expenses).where(and(gte(expenses.day, from), lte(expenses.day, to), branch ? eq(expenses.branch, branch) : undefined)).orderBy(desc(expenses.day)).limit(200),
-      ]);
-
-      const [revenueResult] = await db.select({ value: sql<number>`coalesce(sum(${sales.total}), 0)` }).from(sales).where(and(...conditions));
-      const [costsResult] = await db.select({ value: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(gte(expenses.day, from), lte(expenses.day, to)));
-      const [countResult] = await db.select({ value: sql<number>`count(*)` }).from(sales).where(and(...conditions));
-
-      return json({
-        products: p,
-        sales: s,
-        expenses: e,
-        totals: { revenue: revenueResult.value, costs: costsResult.value, count: countResult.value },
-      });
-    }
-
-    if (action === "dashboard") {
-      const from = date(u.searchParams.get("from") || day().slice(0, 7) + "-01");
-      const to = date(u.searchParams.get("to") || day());
-      const branch = u.searchParams.get("branch") || "";
-
-      const conditions = [gte(sales.day, from), lte(sales.day, to)];
-      if (branch) conditions.push(eq(sales.branch, branch));
-
-      const [revenueResult] = await db.select({ value: sql<number>`coalesce(sum(${sales.total}), 0)` }).from(sales).where(and(...conditions));
-      const [costsResult] = await db.select({ value: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(gte(expenses.day, from), lte(expenses.day, to)));
-      const [countResult] = await db.select({ value: sql<number>`count(*)` }).from(sales).where(and(...conditions));
-
-      const dailySales = await db
-        .select({
-          day: sales.day,
-          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
-          count: sql<number>`count(*)`,
-        })
-        .from(sales)
-        .where(and(...conditions))
-        .groupBy(sales.day)
-        .orderBy(sales.day);
-
-      const paymentStats = await db
-        .select({
-          payment: sales.payment,
-          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
-          count: sql<number>`count(*)`,
-        })
-        .from(sales)
-        .where(and(...conditions))
-        .groupBy(sales.payment);
-
-      const topProducts = await db
-        .select({
-          name: sql<string>`json_extract(${sales.lines}, '$[0].name')`,
-          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
-        })
-        .from(sales)
-        .where(and(...conditions))
-        .groupBy(sql`json_extract(${sales.lines}, '$[0].name')`)
-        .orderBy(desc(sql<number>`coalesce(sum(${sales.total}), 0)`))
-        .limit(10);
-
-      return json({
-        totals: { revenue: revenueResult.value, costs: costsResult.value, count: countResult.value },
-        dailySales,
-        paymentStats,
-        topProducts,
-      });
-    }
-
-    if (action === "branches") {
-      const b = await db.select().from(branches).where(eq(branches.active, 1));
-      return json({ branches: b });
-    }
-
-    if (action === "users") {
-      const u = await db.select().from(users).where(eq(users.active, 1));
-      return json({ users: u });
-    }
-
-    return json({ error: "Ação inválida." }, 400);
-  } catch (e) {
-    console.error(e);
-    return json({ error: "Não foi possível carregar os registros." }, 503);
+export const GET = withSession(async (req, session) => {
+  const u = new URL(req.url), db = getDb();
+  const action = u.searchParams.get("action") || "records";
+  if (action === "backup") return json(await exportBackup(session));
+  if (action === "branches") return json({ branches: await db.select({ id: branches.id, name: branches.name }).from(branches).where(and(eq(branches.tenantId, session.tenantId), eq(branches.active, 1), session.role !== "admin" ? eq(branches.id, session.branch) : undefined)) });
+  if (action === "users") {
+    requireAdmin(session);
+    return json({ users: await db.select({ id: users.id, username: users.username, name: users.name, role: users.role, branch: users.branch, active: users.active }).from(users).where(eq(users.tenantId, session.tenantId)) });
   }
-}
-
-export async function POST(req: Request) {
-  try {
-    const db = getDb();
-    const contentType = req.headers.get("content-type") || "";
-
-    if (contentType.includes("multipart/form-data")) {
-      const f = await req.formData();
-      const action = f.get("action") as string;
-
-      if (action === "upload-receipt") {
-        const id = f.get("id");
-        if (!validId(id)) return json({ error: "Identificador inválido." }, 400);
-        const existing = await db.select().from(expenses).where(eq(expenses.id, id as string)).get();
-        if (existing) return json({ ok: true });
-
-        const merchantName = name(f.get("merchant"));
-        const amountValue = money(Number(f.get("amount")));
-        const dt = date(f.get("day"));
-        const file = f.get("receipt") as File | null;
-        let receiptUrl: string | null = null;
-
-        if (file && file.size > 0) {
-          if (file.size > 8 * 1024 * 1024) return json({ error: "Escolha uma imagem de até 8 MB." }, 400);
-          if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
-            return json({ error: "Use uma foto JPG, PNG ou WebP." }, 400);
-
-          try {
-            const { put } = await import("@vercel/blob");
-            const blob = await put(`receipts/${id}`, file, { access: "public" });
-            receiptUrl = blob.url;
-          } catch (e) {
-            console.error("Blob upload error:", e);
-          }
-        }
-
-        await db.insert(expenses).values({
-          id: id as string,
-          day: dt,
-          merchant: merchantName,
-          amount: amountValue,
-          receipt: receiptUrl,
-          created: new Date().toISOString(),
-          branch: (f.get("branch") as string) || "principal",
-        });
-        return json({ ok: true });
-      }
-
-      if (action === "upload-product-photo") {
-        const id = f.get("id");
-        if (!validId(id)) return json({ error: "Identificador inválido." }, 400);
-        const file = f.get("photo") as File;
-        if (!file || file.size === 0) return json({ error: "Selecione uma foto." }, 400);
-        if (file.size > 5 * 1024 * 1024) return json({ error: "Foto de até 5 MB." }, 400);
-
-        try {
-          const { put } = await import("@vercel/blob");
-          const blob = await put(`products/${id}`, file, { access: "public" });
-          await db.update(products).set({ photo: blob.url }).where(eq(products.id, id as string));
-          return json({ ok: true, url: blob.url });
-        } catch (e) {
-          return json({ error: "Erro ao enviar foto." }, 500);
-        }
-      }
-
-      return json({ error: "Ação inválida." }, 400);
+  if (!["records", "dashboard"].includes(action)) throw new HttpError(400, "Ação inválida.");
+  const from = date(u.searchParams.get("from") || day().slice(0,7) + "-01"), to = date(u.searchParams.get("to") || day());
+  if (from > to) throw new HttpError(400, "Confira o período.");
+  const branch = await resolveBranch(session, u.searchParams.get("branch"), true);
+  const search = (u.searchParams.get("search") || "").slice(0, 150);
+  const page = Number(u.searchParams.get("page") || 1), limit = Number(u.searchParams.get("limit") || 200);
+  if (!Number.isInteger(page) || page < 1 || page > 100000 || !Number.isInteger(limit) || limit < 1 || limit > 200) throw new HttpError(400, "Paginação inválida.");
+  const sc = and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), gte(sales.day, from), lte(sales.day, to), branch ? eq(sales.branch, branch) : undefined, search ? or(like(sales.lines, `%${search}%`), like(sales.payment, `%${search}%`), like(sales.employee, `%${search}%`)) : undefined);
+  const ec = and(eq(expenses.tenantId, session.tenantId), gte(expenses.day, from), lte(expenses.day, to), branch ? eq(expenses.branch, branch) : undefined);
+  const [revenue, costs, count] = await Promise.all([
+    db.select({ value: sql<number>`coalesce(sum(${sales.total}),0)` }).from(sales).where(sc).get(),
+    db.select({ value: sql<number>`coalesce(sum(${expenses.amount}),0)` }).from(expenses).where(ec).get(),
+    db.select({ value: sql<number>`count(*)` }).from(sales).where(sc).get(),
+  ]);
+  const totals = { revenue: revenue?.value || 0, costs: costs?.value || 0, count: count?.value || 0 };
+  if (action === "dashboard") {
+    const data = await db.select().from(sales).where(sc);
+    const ranking = new Map<string, { name: string; total: number; qty: number }>();
+    for (const sale of data) for (const line of JSON.parse(sale.lines)) {
+      const p = ranking.get(line.id) || { name: line.name, total: 0, qty: 0 };
+      p.total += line.price * line.qty; p.qty += line.qty; ranking.set(line.id, p);
     }
-
-    const b = (await req.json()) as any;
-
-    if (b.action === "login") {
-      if (!b.username || !b.password) return json({ error: "Preencha usuário e senha." }, 400);
-      const user = await db.select().from(users).where(and(eq(users.username, b.username), eq(users.password, b.password), eq(users.active, 1))).get();
-      if (!user) return json({ error: "Usuário ou senha incorretos." }, 401);
-      return json({ ok: true, user: { id: user.id, name: user.name, role: user.role, branch: user.branch } });
-    }
-
-    if (b.action === "create-user") {
-      if (!b.username || !b.password || !b.name) return json({ error: "Preencha todos os campos." }, 400);
-      try {
-        await db.insert(users).values({ id: crypto.randomUUID(), username: b.username, password: b.password, name: b.name, role: b.role || "caixa", branch: b.branch || "principal" });
-        return json({ ok: true });
-      } catch (e: any) {
-        if (e.message?.includes("UNIQUE")) return json({ error: "Usuário já existe." }, 400);
-        throw e;
-      }
-    }
-
-    if (b.action === "create-branch") {
-      if (!b.name) return json({ error: "Nome da filial é obrigatório." }, 400);
-      await db.insert(branches).values({ id: crypto.randomUUID(), name: b.name, address: b.address || "", phone: b.phone || "" });
-      return json({ ok: true });
-    }
-
-    if (!validId(b.id)) return json({ error: "Identificador inválido." }, 400);
-
-    if (b.action === "product") {
-      const n = name(b.name);
-      const p = money(b.price);
-      if (typeof b.description !== "string" || b.description.length > 500) return json({ error: "Descrição muito longa." }, 400);
-      const existing = await db.select().from(products).where(eq(products.id, b.id)).get();
-      if (existing) {
-        await db.update(products).set({ name: n, description: b.description, price: p, category: b.category || "Geral", stock: b.stock ?? -1, cost: b.cost ?? 0 }).where(eq(products.id, b.id));
-      } else {
-        await db.insert(products).values({ id: b.id, name: n, description: b.description, price: p, active: 1, category: b.category || "Geral", stock: b.stock ?? -1, cost: b.cost ?? 0 });
-      }
-      return json({ ok: true });
-    }
-
-    if (b.action === "toggle") {
-      if (typeof b.active !== "boolean") return json({ error: "Estado inválido." }, 400);
-      await db.update(products).set({ active: b.active ? 1 : 0 }).where(eq(products.id, b.id));
-      return json({ ok: true });
-    }
-
-    if (b.action === "delete-product") {
-      await db.delete(products).where(eq(products.id, b.id));
-      return json({ ok: true });
-    }
-
-    if (b.action === "apply-coupon") {
-      if (!b.code) return json({ error: "Informe o código do cupom." }, 400);
-      const coupon = await db.select().from(coupons).where(and(eq(coupons.code, b.code.toUpperCase()), eq(coupons.active, 1))).get();
-      if (!coupon) return json({ error: "Cupom não encontrado." }, 404);
-      if (coupon.uses_left <= 0) return json({ error: "Cupom esgotado." }, 400);
-      if (new Date(coupon.valid_until) < new Date()) return json({ error: "Cupom expirado." }, 400);
-      let discount = 0;
-      if (coupon.type === "percent") {
-        discount = Math.round((b.subtotal || 0) * coupon.value / 100);
-      } else {
-        discount = Math.min(coupon.value, b.subtotal || 0);
-      }
-      await db.update(coupons).set({ uses_left: coupon.uses_left - 1 }).where(eq(coupons.id, coupon.id));
-      return json({ ok: true, discount, type: coupon.type, value: coupon.value });
-    }
-
-    if (b.action === "create-coupon") {
-      if (!b.code || !b.value) return json({ error: "Preencha código e valor." }, 400);
-      try {
-        await db.insert(coupons).values({ id: crypto.randomUUID(), code: b.code.toUpperCase(), type: b.type || "percent", value: b.value, uses_left: b.uses_left || 1, valid_until: b.valid_until || "2099-12-31" });
-        return json({ ok: true });
-      } catch (e: any) {
-        if (e.message?.includes("UNIQUE")) return json({ error: "Cupom já existe." }, 400);
-        throw e;
-      }
-    }
-
-    if (b.action === "quick-sale") {
-      if (!b.items || !Array.isArray(b.items) || !b.items.length) return json({ error: "Pedido vazio." }, 400);
-      const id = crypto.randomUUID();
-      let total = 0;
-      const lines = b.items.map((item: any) => { total += (item.price || 0) * (item.qty || 1); return { id: item.id || "avulso", name: item.name, price: item.price, qty: item.qty || 1 }; });
-      await db.insert(sales).values({
-        id, created: new Date().toISOString(), day: day(), lines: JSON.stringify(lines),
-        payment: b.payment || "Dinheiro", total, received: total,
-        branch: b.branch || "principal", employee: b.employee || "",
-      });
-      return json({ ok: true, total });
-    }
-
-    if (b.action === "sale") {
-      const existingSale = await db.select().from(sales).where(eq(sales.id, b.id)).get();
-      if (existingSale) return json({ ok: true });
-      if (!["Dinheiro", "Pix", "Cartão"].includes(b.payment) || !Array.isArray(b.items) || !b.items.length || b.items.length > 100)
-        return json({ error: "Confira o pedido e o pagamento." }, 400);
-
-      const activeProducts = await db.select().from(products).where(eq(products.active, 1));
-      let total = 0;
-      const seen = new Set<string>();
-      const lines = [];
-
-      for (const i of b.items) {
-        const p = activeProducts.find((p) => p.id === i.id);
-        if (!p || !Number.isInteger(i.qty) || i.qty < 1 || i.qty > 999 || seen.has(i.id)) throw new Error("Confira os itens do pedido.");
-        seen.add(i.id);
-        total += p.price * i.qty;
-        lines.push({ id: p.id, name: p.name, price: p.price, qty: i.qty });
-        if (p.stock >= 0) {
-          const newStock = p.stock - i.qty;
-          if (newStock < 0) throw new Error(`Estoque insuficiente para ${p.name}.`);
-          await db.update(products).set({ stock: newStock }).where(eq(products.id, p.id));
-        }
-      }
-
-      money(total);
-      if (b.expectedTotal !== total) return json({ error: "Um preço mudou. Atualize o cardápio e confira o pedido." }, 409);
-
-      const received = b.payment === "Dinheiro" ? money(b.received) : total;
-      if (received < total) return json({ error: "Valor recebido insuficiente." }, 400);
-
-      await db.insert(sales).values({
-        id: b.id,
-        created: new Date().toISOString(),
-        day: day(),
-        lines: JSON.stringify(lines),
-        payment: b.payment,
-        total,
-        received,
-        branch: b.branch || "principal",
-        employee: b.employee || "",
-        note: b.note || null,
-      });
-      if (b.customerId) {
-        const pts = Math.floor(total / 100);
-        if (pts > 0) {
-          const ex = await db.select().from(loyalty).where(eq(loyalty.customerId, b.customerId)).get();
-          if (ex) { const np = ex.points + pts; const tier = np >= 1000 ? "gold" : np >= 500 ? "prata" : "bronze"; await db.update(loyalty).set({ points: np, totalEarned: ex.totalEarned + pts, tier }).where(eq(loyalty.id, ex.id)); }
-          else { const tier = pts >= 1000 ? "gold" : pts >= 500 ? "prata" : "bronze"; await db.insert(loyalty).values({ id: crypto.randomUUID(), customerId: b.customerId, points: pts, totalEarned: pts, tier }); }
-          await db.insert(loyaltyTransactions).values({ id: crypto.randomUUID(), customerId: b.customerId, type: "earned", points: pts, description: `Compra #${b.id.slice(-6)}`, created: new Date().toISOString() });
-        }
-      }
-      return json({ ok: true, total, change: received - total });
-    }
-
-    if (b.action === "delete-sale") {
-      await db.delete(sales).where(eq(sales.id, b.id));
-      return json({ ok: true });
-    }
-
-    if (b.action === "import" && b.data) {
-      const d = b.data;
-      if (d.products) for (const p of d.products) { const ex = await db.select().from(products).where(eq(products.id, p.id)).get(); if (!ex) await db.insert(products).values(p); }
-      if (d.sales) for (const s of d.sales) { const ex = await db.select().from(sales).where(eq(sales.id, s.id)).get(); if (!ex) await db.insert(sales).values(s); }
-      if (d.expenses) for (const e of d.expenses) { const ex = await db.select().from(expenses).where(eq(expenses.id, e.id)).get(); if (!ex) await db.insert(expenses).values(e); }
-      return json({ ok: true, imported: true });
-    }
-
-    return json({ error: "Operação inválida." }, 400);
-  } catch (e) {
-    console.error(e);
-    const message = e instanceof Error ? e.message : "";
-    const user = /Informe|Preencha|inválid|Confira|Data|Estoque/.test(message);
-    return json({ error: user ? message : "Não foi possível salvar." }, user ? 400 : 503);
+    const dailySales = await db.select({ day: sales.day, total: sql<number>`sum(${sales.total})`, count: sql<number>`count(*)` }).from(sales).where(sc).groupBy(sales.day).orderBy(sales.day);
+    const paymentStats = await db.select({ payment: sales.payment, total: sql<number>`sum(${sales.total})`, count: sql<number>`count(*)` }).from(sales).where(sc).groupBy(sales.payment);
+    return json({ totals, dailySales, paymentStats, topProducts: [...ranking.values()].sort((a,b) => b.total-a.total).slice(0,10) });
   }
-}
+  const [p,s,e] = await Promise.all([
+    db.select().from(products).where(eq(products.tenantId, session.tenantId)).orderBy(products.name),
+    db.select().from(sales).where(sc).orderBy(desc(sales.created)).limit(limit).offset((page-1)*limit),
+    db.select().from(expenses).where(ec).orderBy(desc(expenses.day)).limit(200),
+  ]);
+  return json({ products:p, sales:s, expenses:e, totals });
+});
+
+export const POST = withSession(async (req, session) => {
+  const db = getDb();
+  if (req.headers.get("content-type")?.includes("multipart/form-data")) {
+    const f = await req.formData(), action = f.get("action"), id = f.get("id");
+    if (!validId(id)) throw new HttpError(400, "Identificador inválido.");
+    if (action === "upload-product-photo") {
+      requireAdmin(session);
+      const product = await db.select().from(products).where(and(eq(products.id,id),eq(products.tenantId,session.tenantId))).get();
+      if (!product) throw new HttpError(404, "Produto não encontrado.");
+      const file = f.get("photo");
+      if (!(file instanceof File) || !file.size || file.size > 5*1024*1024 || !["image/jpeg","image/png","image/webp"].includes(file.type)) throw new HttpError(400, "Use JPG, PNG ou WebP de até 5 MB.");
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`products/${session.tenantId}/${id}`, file, { access:"public" });
+      await db.update(products).set({photo:blob.url}).where(and(eq(products.id,id),eq(products.tenantId,session.tenantId)));
+      return json({ok:true,url:blob.url});
+    }
+    if (action !== "upload-receipt") throw new HttpError(400,"Ação inválida.");
+    const existing = await db.select().from(expenses).where(and(eq(expenses.id,id),eq(expenses.tenantId,session.tenantId))).get();
+    if (existing) return json({ok:true});
+    const merchant = text(f.get("merchant")), amount = money(Number(f.get("amount")),1), dt = date(f.get("day"));
+    const branch = await resolveBranch(session, f.get("branch") as string);
+    const file = f.get("receipt"); let receipt: string|null = null;
+    if (file instanceof File && file.size) {
+      if (file.size > 8*1024*1024 || !["image/jpeg","image/png","image/webp"].includes(file.type)) throw new HttpError(400,"Use JPG, PNG ou WebP de até 8 MB.");
+      const { put } = await import("@vercel/blob");
+      receipt = (await put(`receipts/${session.tenantId}/${id}`, file, { access:"public" })).url;
+    }
+    await db.insert(expenses).values({id,tenantId:session.tenantId,day:dt,merchant,amount,receipt,branch:branch!,created:new Date().toISOString()});
+    return json({ok:true});
+  }
+  const b = await req.json();
+  if (b.action === "sale" || b.action === "quick-sale") return json(await checkout(session,b));
+  if (b.action === "apply-coupon") {
+    const { total } = await priceItems(db,session.tenantId,b.items);
+    const {discount,coupon} = await priceCoupon(db,session.tenantId,b.code,total);
+    return json({ok:true,discount,code:coupon?.code});
+  }
+  if (b.action === "update-profile") {
+    const name = text(b.name), email = text(b.email,254).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400,"Email inválido.");
+    const existing = await db.select({id:users.id}).from(users).where(eq(users.username,email)).get();
+    if (existing && existing.id !== session.userId) throw new HttpError(409,"Email já cadastrado.");
+    await db.update(users).set({name,username:email}).where(and(eq(users.id,session.userId),eq(users.tenantId,session.tenantId)));
+    return json({ok:true});
+  }
+  requireAdmin(session);
+  if (b.action === "create-user") {
+    const username=text(b.username,254).toLowerCase(), name=text(b.name);
+    if (typeof b.password !== "string" || b.password.length < 8 || b.password.length > 72 || !["admin","caixa"].includes(b.role || "caixa")) throw new HttpError(400,"Use senha de 8 a 72 caracteres e perfil válido.");
+    const branch=await resolveBranch(session,b.branch);
+    if (await db.select({id:users.id}).from(users).where(eq(users.username,username)).get()) throw new HttpError(409,"Usuário já existe.");
+    await db.insert(users).values({id:crypto.randomUUID(),tenantId:session.tenantId,username,password:await hashPassword(b.password),name,role:b.role||"caixa",branch:branch!,plan:session.plan});
+    return json({ok:true});
+  }
+  if (b.action === "create-branch") {
+    await db.insert(branches).values({id:crypto.randomUUID(),tenantId:session.tenantId,name:text(b.name),address:b.address||"",phone:b.phone||""});
+    return json({ok:true});
+  }
+  if (b.action === "create-coupon") {
+    const code=text(b.code,50).toUpperCase(), value=money(b.value,1), type=b.type||"percent", uses=b.uses_left??1;
+    if (!["percent","fixed"].includes(type) || (type==="percent" && value>100) || !Number.isInteger(uses) || uses<1) throw new HttpError(400,"Cupom inválido.");
+    if (await db.select().from(coupons).where(and(eq(coupons.tenantId,session.tenantId),eq(coupons.code,code))).get()) throw new HttpError(409,"Cupom já existe.");
+    await db.insert(coupons).values({id:crypto.randomUUID(),tenantId:session.tenantId,code,value,type,uses_left:uses,valid_until:date(b.valid_until||"2099-12-31")});
+    return json({ok:true});
+  }
+  if (b.action === "import") return json(await importBackup(session, b.data));
+  if (!validId(b.id)) throw new HttpError(400,"Identificador inválido.");
+  if (b.action === "delete-sale" || b.action === "restore-sale") return json(await cancelSale(session,b.id,b.action==="restore-sale"));
+  if (b.action === "product") {
+    const name=text(b.name), price=money(b.price,1), cost=money(b.cost??0), stock=b.stock??-1;
+    if (!Number.isSafeInteger(stock) || stock < -1 || stock > 1000000 || typeof b.description !== "string" || b.description.length>500) throw new HttpError(400,"Confira descrição e estoque.");
+    const values={name,price,cost,stock,description:b.description,category:text(b.category||"Geral",80)};
+    const existing=await db.select().from(products).where(and(eq(products.id,b.id),eq(products.tenantId,session.tenantId))).get();
+    if(existing) await db.update(products).set(values).where(and(eq(products.id,b.id),eq(products.tenantId,session.tenantId)));
+    else await db.insert(products).values({id:b.id,tenantId:session.tenantId,...values});
+    return json({ok:true});
+  }
+  if (b.action === "toggle" || b.action === "delete-product") {
+    if(b.action === "toggle" && typeof b.active !== "boolean") throw new HttpError(400,"Estado inválido.");
+    const updated=await db.update(products).set({active:b.action==="delete-product"?0:b.active?1:0}).where(and(eq(products.id,b.id),eq(products.tenantId,session.tenantId))).returning({id:products.id});
+    if(!updated.length) throw new HttpError(404,"Produto não encontrado.");
+    return json({ok:true});
+  }
+  throw new HttpError(400,"Operação inválida.");
+});

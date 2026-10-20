@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FileText, Search, Printer } from "lucide-react";
 
-type NFe = { id: string; sale_id: string; number: number; cpf_cnpj: string; created: string; status: string };
+type NFe = { id: string; saleId: string; number: number; cpfCnpj: string; created: string; status: string };
 
 export default function NFePage() {
   const [nfes, setNfes] = useState<NFe[]>([]);
@@ -36,7 +36,7 @@ export default function NFePage() {
     setSaleId(""); setCpfCnpj(""); refresh();
   }
 
-  const filtered = nfes.filter(n => !search || n.number.toString().includes(search) || n.sale_id.includes(search) || n.cpf_cnpj.includes(search));
+  const filtered = nfes.filter(n => !search || n.number.toString().includes(search) || n.saleId.includes(search) || n.cpfCnpj.includes(search));
 
   return (
     <div style={{ fontFamily: "Arial", background: "#f3f5f7", minHeight: "100vh" }}>
@@ -84,8 +84,8 @@ export default function NFePage() {
                 {filtered.map(n => (
                   <tr key={n.id} style={{ borderTop: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "10px 12px", fontWeight: 700 }}>#{String(n.number).padStart(6, "0")}</td>
-                    <td style={{ padding: "10px 12px", fontSize: 12, color: "#657184" }}>{n.sale_id.slice(0, 8)}...</td>
-                    <td style={{ padding: "10px 12px" }}>{n.cpf_cnpj || "—"}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 12, color: "#657184" }}>{n.saleId.slice(0, 8)}...</td>
+                    <td style={{ padding: "10px 12px" }}>{n.cpfCnpj || "—"}</td>
                     <td style={{ padding: "10px 12px" }}>{new Date(n.created).toLocaleDateString("pt-BR")}</td>
                     <td style={{ padding: "10px 12px" }}><span style={{ background: "#f0fdf4", color: "#16a34a", padding: "2px 8px", borderRadius: 8, fontSize: 11 }}>{n.status}</span></td>
                   </tr>

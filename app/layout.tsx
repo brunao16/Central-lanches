@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -6,9 +6,10 @@ export const metadata: Metadata = {
   description: "Vendas, cardápio e gastos da Central Lanches.",
   icons: { icon: "/favicon.svg" },
   manifest: "/manifest.json",
-  themeColor: "#d84416",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+
 };
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#e8192c" };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (

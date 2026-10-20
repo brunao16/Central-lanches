@@ -21,8 +21,8 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
-    if (form.password.length < 6) {
-      setError("Senha deve ter no mínimo 6 caracteres.");
+    if (form.password.length < 8) {
+      setError("Senha deve ter no mínimo 8 caracteres.");
       setLoading(false);
       return;
     }
@@ -35,7 +35,7 @@ export default function RegisterPage() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      localStorage.setItem("cl_token", d.token);
+      localStorage.removeItem("cl_token");
       localStorage.setItem("cl_user", JSON.stringify(d.user));
       router.push("/");
     } catch (err: any) {

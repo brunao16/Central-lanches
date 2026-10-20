@@ -1,20 +1,22 @@
+import { withSession, requireAdmin, resolveBranch, HttpError, apiError } from "@/lib/session";
 import { NextResponse } from "next/server";
-import { eq, and, gte, lte, sql, desc, like } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, like, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { products, sales, expenses, users, timeClock, loyalty } from "@/db/schema";
+import { products, sales, expenses, users, timeClock, loyalty, settings } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
 const day = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 const now = () => new Date();
-const h = (d: Date, tz = "America/Sao_Paulo") => parseInt(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hour12: false }).format(d));
+const h = (d: Date, tz = "America/Sao_Paulo") => parseInt(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hourCycle: "h23" }).format(d));
 
-export async function GET(req: Request) {
+export const GET = withSession(async (req, session) => {
   try {
+    requireAdmin(session);
     const u = new URL(req.url);
     const from = u.searchParams.get("from") || day().slice(0, 7) + "-01";
     const to = u.searchParams.get("to") || day();
-    const branch = u.searchParams.get("branch") || "";
+    const branch = await resolveBranch(session, u.searchParams.get("branch"), true);
     const db = getDb();
 
     const conditions = [gte(sales.day, from), lte(sales.day, to)];
@@ -29,33 +31,33 @@ export async function GET(req: Request) {
     const weekAgo = new Date(now().getTime() - 7 * 86400000);
     const weekAgoStr = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(weekAgo);
     const monthStart = todayStr.slice(0, 7) + "-01";
-    const lastMonthDate = new Date(now().getTime() - 30 * 86400000);
-    const lastMonthStart = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth(), 1));
-    const lastMonthEnd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(now().getTime() - 30 * 86400000));
+    const [year, month] = todayStr.split("-").map(Number);
+    const lastMonthStart = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0,10);
+    const lastMonthEnd = new Date(Date.UTC(year, month - 1, 0)).toISOString().slice(0,10);
 
     const [todaySales, todayExpenses, periodSales, periodExpenses, allSales] = await Promise.all([
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.day, todayStr), branch ? eq(sales.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.day, todayStr), branch ? eq(expenses.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(...conditions)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(...expConditions)).get(),
-      db.select().from(sales).where(and(...conditions)).orderBy(desc(sales.created)),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(eq(sales.day, todayStr), branch ? eq(sales.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.tenantId, session.tenantId), and(eq(expenses.day, todayStr), branch ? eq(expenses.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(...conditions))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.tenantId, session.tenantId), and(...expConditions))).get(),
+      db.select().from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(...conditions))).orderBy(desc(sales.created)),
     ]);
 
     const [yesterdaySales, yesterdayExpenses] = await Promise.all([
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.day, yesterdayStr), branch ? eq(sales.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.day, yesterdayStr), branch ? eq(expenses.branch, branch) : undefined)).get(),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(eq(sales.day, yesterdayStr), branch ? eq(sales.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.tenantId, session.tenantId), and(eq(expenses.day, yesterdayStr), branch ? eq(expenses.branch, branch) : undefined))).get(),
     ]);
 
     const [weekSales, weekExpenses, lastWeekSales] = await Promise.all([
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(gte(sales.day, weekAgoStr), lte(sales.day, to), branch ? eq(sales.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(gte(expenses.day, weekAgoStr), lte(expenses.day, to), branch ? eq(expenses.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)` }).from(sales).where(and(gte(sales.day, weekAgoStr), lte(sales.day, yesterdayStr), branch ? eq(sales.branch, branch) : undefined)).get(),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(gte(sales.day, weekAgoStr), lte(sales.day, to), branch ? eq(sales.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.tenantId, session.tenantId), and(gte(expenses.day, weekAgoStr), lte(expenses.day, to), branch ? eq(expenses.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(gte(sales.day, weekAgoStr), lte(sales.day, yesterdayStr), branch ? eq(sales.branch, branch) : undefined))).get(),
     ]);
 
     const [monthSales, monthExpenses, lastMonthSalesData] = await Promise.all([
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(gte(sales.day, monthStart), lte(sales.day, to), branch ? eq(sales.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(gte(expenses.day, monthStart), lte(expenses.day, to), branch ? eq(expenses.branch, branch) : undefined)).get(),
-      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(gte(sales.day, lastMonthStart), lte(sales.day, lastMonthEnd), branch ? eq(sales.branch, branch) : undefined)).get(),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(gte(sales.day, monthStart), lte(sales.day, to), branch ? eq(sales.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(eq(expenses.tenantId, session.tenantId), and(gte(expenses.day, monthStart), lte(expenses.day, to), branch ? eq(expenses.branch, branch) : undefined))).get(),
+      db.select({ total: sql<number>`coalesce(sum(${sales.total}), 0)`, count: sql<number>`count(*)` }).from(sales).where(and(eq(sales.tenantId, session.tenantId), isNull(sales.cancelledAt), and(gte(sales.day, lastMonthStart), lte(sales.day, lastMonthEnd), branch ? eq(sales.branch, branch) : undefined))).get(),
     ]);
 
     const todayRev = todaySales?.total || 0;
@@ -70,7 +72,7 @@ export async function GET(req: Request) {
     const yestCount = yesterdaySales?.count || 0;
     const revTrend = yestRev > 0 ? Math.round(((todayRev - yestRev) / yestRev) * 100) : 0;
     const countTrend = yestCount > 0 ? Math.round(((todayCount - yestCount) / yestCount) * 100) : 0;
-    const ticketTrend = yestCount > 0 ? Math.round(((ticketMedio - (yestRev / yestCount)) / (yestRev / yestCount)) * 100) : 0;
+    const ticketTrend = yestCount > 0 && yestRev > 0 ? Math.round(((ticketMedio - (yestRev / yestCount)) / (yestRev / yestCount)) * 100) : 0;
 
     const weekRev = weekSales?.total || 0;
     const weekCost = weekExpenses?.total || 0;
@@ -80,7 +82,7 @@ export async function GET(req: Request) {
     const monthCount = monthSales?.count || 0;
     const lastMonthRev = lastMonthSalesData?.total || 0;
     const lastMonthCount = lastMonthSalesData?.count || 0;
-    const dailyGoal = parseInt((await db.select({ value: sql<string>`value` }).from(require("@/db/schema").settings).where(eq(require("@/db/schema").settings.key, "dailyGoal")).get())?.value || "50000");
+    const dailyGoal = parseInt((await db.select({ value: sql<string>`value` }).from(settings).where(and(eq(settings.tenantId, session.tenantId), eq(require("@/db/schema").settings.key, "dailyGoal"))).get())?.value || "50000");
     const goalProgress = dailyGoal > 0 ? Math.min(100, Math.round((todayRev / dailyGoal) * 100)) : 0;
 
     const hourlySales: Record<number, { total: number; count: number }> = {};
@@ -98,7 +100,7 @@ export async function GET(req: Request) {
     for (const s of allSales) {
       const d = new Date(s.created);
       const hour = h(d);
-      const dow = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][d.getDay()];
+      const dow = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][new Date(s.day + "T12:00:00Z").getUTCDay()];
       const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
 
       hourlySales[hour].total += s.total;
@@ -131,7 +133,7 @@ export async function GET(req: Request) {
       }
     }
 
-    const clockRecords = await db.select().from(timeClock).where(and(gte(timeClock.day, weekAgoStr), lte(timeClock.day, to))).orderBy(desc(timeClock.clockIn));
+    const clockRecords = await db.select().from(timeClock).where(and(eq(timeClock.tenantId, session.tenantId), and(gte(timeClock.day, weekAgoStr), lte(timeClock.day, to)))).orderBy(desc(timeClock.clockIn));
     for (const cr of clockRecords) {
       const emp = cr.employee;
       if (!employeeSales[emp]) employeeSales[emp] = { total: 0, count: 0, hours: 0 };
@@ -153,7 +155,7 @@ export async function GET(req: Request) {
     const bestHour = Object.entries(hourlySales).sort((a, b) => b[1].total - a[1].total)[0];
     const worstHour = Object.entries(hourlySales).sort((a, b) => a[1].total - b[1].total)[0];
 
-    const lowStock = (await db.select().from(products).where(eq(products.active, 1))).filter(p => p.stock >= 0 && p.stock < 5);
+    const lowStock = (await db.select().from(products).where(and(eq(products.tenantId, session.tenantId), eq(products.active, 1)))).filter(p => p.stock >= 0 && p.stock < 5);
 
     const alerts: { type: string; message: string; severity: string }[] = [];
     if (goalProgress < 80 && h(now()) >= 18) alerts.push({ type: "goal", message: `Meta ${goalProgress}% até as 18h`, severity: "warning" });
@@ -165,7 +167,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       kpis: { todayRev, todayCost, todayProfit, todayCount, ticketMedio, margem, dailyGoal, goalProgress },
-      trends: { revTrend, countTrend, ticketTrend, profitTrend: yestRev > 0 ? Math.round(((todayProfit - (yestRev - yestCost)) / (yestRev - yestCost)) * 100) : 0 },
+      trends: { revTrend, countTrend, ticketTrend, profitTrend: yestRev - yestCost !== 0 ? Math.round(((todayProfit - (yestRev - yestCost)) / (yestRev - yestCost)) * 100) : 0 },
       comparison: { yesterday: { rev: yestRev, cost: yestCost, count: yestCount }, week: { rev: weekRev, cost: weekCost, count: weekCount }, month: { rev: monthRev, cost: monthCost, count: monthCount }, lastMonth: { rev: lastMonthRev, cost: 0, count: lastMonthCount } },
       hourlySales: Object.entries(hourlySales).map(([h, d]) => ({ hour: parseInt(h), ...d })),
       dayOfWeekSales: Object.entries(dayOfWeekSales).map(([d, v]) => ({ day: d, ...v })),
@@ -177,7 +179,8 @@ export async function GET(req: Request) {
       alerts, lowStock: lowStock.map(p => ({ id: p.id, name: p.name, stock: p.stock })),
     });
   } catch (e) {
+    if (e instanceof HttpError) return apiError(e);
     console.error(e);
     return NextResponse.json({ error: "Erro ao carregar dashboard." }, { status: 500 });
   }
-}
+});

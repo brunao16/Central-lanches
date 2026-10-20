@@ -30,11 +30,13 @@ export default function AccountPage() {
     setMsg("");
     try {
       const token = localStorage.getItem("cl_token");
-      await fetch("/api/records", {
+      const response = await fetch("/api/records", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update-profile", name, email, token }),
       });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
       const updated = { ...user, name, email };
       localStorage.setItem("cl_user", JSON.stringify(updated));
       setUser(updated);
@@ -45,7 +47,8 @@ export default function AccountPage() {
     setSaving(false);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
     localStorage.removeItem("cl_user");
     localStorage.removeItem("cl_token");
     localStorage.removeItem("cl_onboarded");

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Clock, Check, ChefHat, Bell } from "lucide-react";
+import { Clock, Check, ChefHat, Bell, Printer } from "lucide-react";
+import { printComanda } from "@/lib/print";
 
 type Order = {
   id: string;
@@ -165,11 +166,20 @@ function OrderCard({ order, onAdvance }: { order: Order; onAdvance: () => void }
         <span style={{ fontSize: 12, color: "#999", display: "flex", alignItems: "center", gap: 4 }}>
           <Clock size={12} /> {mins}min
         </span>
-        <button onClick={onAdvance} style={{ background: statusMap[order.status]?.color || "#666", color: "white", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
-          {order.status === "pending" && "▶ Iniciar"}
-          {order.status === "preparing" && "✓ Pronto"}
-          {order.status === "ready" && "✓ Entregue"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => printComanda(items, order.table_num, undefined, order.note || undefined)}
+            title="Imprimir Comanda Térmica"
+            style={{ background: "#3a4555", color: "white", border: "none", padding: "8px 12px", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
+          >
+            🖨️
+          </button>
+          <button onClick={onAdvance} style={{ background: statusMap[order.status]?.color || "#666", color: "white", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
+            {order.status === "pending" && "▶ Iniciar"}
+            {order.status === "preparing" && "✓ Pronto"}
+            {order.status === "ready" && "✓ Entregue"}
+          </button>
+        </div>
       </div>
     </div>
   );

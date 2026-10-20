@@ -32,12 +32,35 @@ const PLANS = [
 export default function BillingPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("cl_user");
     if (stored) setUser(JSON.parse(stored));
     setLoading(false);
   }, []);
+
+  async function handleCheckout(planId: string) {
+    setChecking(true);
+    try {
+      const r = await fetch("/api/billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "checkout", plan: planId, email: user?.email, userId: user?.id }),
+      });
+      const d = await r.json();
+      if (d.url) {
+        window.location.href = d.url;
+      } else if (d.message) {
+        alert(d.message);
+      } else if (d.error) {
+        alert(d.error);
+      }
+    } catch {
+      alert("Erro ao iniciar checkout.");
+    }
+    setChecking(false);
+  }
 
   if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, sans-serif" }}>Carregando…</div>;
 
@@ -139,9 +162,13 @@ export default function BillingPage() {
               {plan.id === currentPlan ? (
                 <button className="btn btn-success" disabled>Plano atual</button>
               ) : plan.price > currentPlanData.price ? (
-                <button className="btn btn-primary">Fazer upgrade</button>
+                <button className="btn btn-primary" onClick={() => handleCheckout(plan.id)} disabled={checking}>
+                  {checking ? "Redirecionando…" : "Fazer upgrade"}
+                </button>
               ) : (
-                <button className="btn btn-outline">Fazer downgrade</button>
+                <button className="btn btn-outline" onClick={() => handleCheckout(plan.id)} disabled={checking}>
+                  {checking ? "Redirecionando…" : "Mudar plano"}
+                </button>
               )}
             </div>
           ))}

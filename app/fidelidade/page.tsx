@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Star, Award, TrendingUp, Gift } from "lucide-react";
 
-type LoyaltyData = { id: string; customer_id: string; points: number; total_earned: number; total_redeemed: number; tier: string };
-type Txn = { id: string; customer_id: string; type: string; points: number; description: string; created: string };
+type LoyaltyData = { id: string; customerId: string; points: number; totalEarned: number; totalRedeemed: number; tier: string };
+type Txn = { id: string; customerId: string; type: string; points: number; description: string; created: string };
 
 const tierConfig: Record<string, { label: string; color: string; bg: string; icon: any; discount: string }> = {
   bronze: { label: "Bronze", color: "#cd7f32", bg: "#fdf2e4", icon: Award, discount: "5%" },
@@ -58,8 +58,8 @@ export default function FidelidadePage() {
     setRedeemPoints(""); refresh(); loadDetails(selected);
   }
 
-  const filtered = loyaltyList.filter(l => !search || l.customer_id.toLowerCase().includes(search.toLowerCase()));
-  const selectedData = loyaltyList.find(l => l.customer_id === selected);
+  const filtered = loyaltyList.filter(l => !search || l.customerId.toLowerCase().includes(search.toLowerCase()));
+  const selectedData = loyaltyList.find(l => l.customerId === selected);
 
   return (
     <div style={{ fontFamily: "Arial", background: "#f3f5f7", minHeight: "100vh" }}>
@@ -82,9 +82,9 @@ export default function FidelidadePage() {
               const tc = tierConfig[l.tier] || tierConfig.bronze;
               const Icon = tc.icon;
               return (
-                <div key={l.id} onClick={() => loadDetails(l.customer_id)} style={{ background: "white", borderRadius: 12, padding: 16, cursor: "pointer", border: selected === l.customer_id ? `2px solid ${tc.color}` : "2px solid transparent", transition: "border .2s" }}>
+                <div key={l.id} onClick={() => loadDetails(l.customerId)} style={{ background: "white", borderRadius: 12, padding: 16, cursor: "pointer", border: selected === l.customerId ? `2px solid ${tc.color}` : "2px solid transparent", transition: "border .2s" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <strong style={{ fontSize: 16 }}>{l.customer_id}</strong>
+                    <strong style={{ fontSize: 16 }}>{l.customerId}</strong>
                     <span style={{ background: tc.bg, color: tc.color, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}><Icon size={12} style={{ display: "inline" }} /> {tc.label}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
@@ -92,7 +92,7 @@ export default function FidelidadePage() {
                     <span>💰 {tc.discount} desconto</span>
                   </div>
                   <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-                    Ganho: {l.total_earned} · Resgatado: {l.total_redeemed}
+                    Ganho: {l.totalEarned} · Resgatado: {l.totalRedeemed}
                   </div>
                 </div>
               );

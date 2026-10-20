@@ -20,7 +20,7 @@ import {
 type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
 type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
 type Expense = { id: string; day: string; merchant: string; amount: number; receipt: string | null; created: string; branch: string };
-type User = { id: string; username: string; name: string; role: string; branch: string; plan: string; email: string };
+type User = { id: string; username: string; name: string; role: string; branch: string; tenantId: string; plan: string; email: string };
 type Branch = { id: string; name: string };
 type Data = { products: Product[]; sales: Sale[]; expenses: Expense[]; totals: { revenue: number; costs: number; count: number } };
 
@@ -71,7 +71,7 @@ function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
       });
       const d = await r.json();
       if (!r.ok) throw Error(d.error);
-      localStorage.setItem("cl_token", d.token);
+      localStorage.removeItem("cl_token");
       localStorage.setItem("cl_user", JSON.stringify(d.user));
       onLogin(d.user);
     } catch (e) { setError((e as Error).message); }
@@ -86,9 +86,9 @@ function LoginScreen({ onLogin }: { onLogin: (u: User) => void }) {
         <p style={{ color: "#6b7280", marginBottom: 28, fontSize: 14 }}>Faça login para acessar o sistema</p>
         {error && <div className="error">{error}</div>}
         <label htmlFor="email" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required style={{ marginBottom: 16 }} />
+        <input id="email" type="text" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required style={{ marginBottom: 16 }} />
         <label htmlFor="pass" style={{ display: "block", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Senha</label>
-        <input id="pass" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••" required />
+        <input id="pass" type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••" required />
         <button className="primary" style={{ width: "100%", marginTop: 20, padding: "12px 24px", fontSize: 15 }} disabled={loading}>{loading ? "Entrando…" : "Entrar"}</button>
         <p style={{ marginTop: 16, fontSize: 13, color: "#6b7280" }}>
           Não tem conta? <a href="/register" style={{ color: "#e8192c", fontWeight: 600 }}>Criar conta grátis</a>
@@ -115,6 +115,9 @@ function HomeInner() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [productSearch, setProductSearch] = useState("");
   const [success, setSuccess] = useState("");
   const [from, setFrom] = useState(today().slice(0, 7) + "-01");
   const [to, setTo] = useState(today());
@@ -166,17 +169,19 @@ function HomeInner() {
       const r = await fetch("/api/records?action=records&" + params);
       const d: any = await r.json();
       if (!r.ok) throw Error(d.error);
-      if (n === loadSeq.current) { setData(d); setError(""); }
-    } catch (e) { if (n === loadSeq.current) setError((e as Error).message); }
+      if (n === loadSeq.current) { setData(d); setError(""); setLoadFailed(false); }
+    } catch (e) { if (n === loadSeq.current) { setError((e as Error).message); setLoadFailed(true); } }
     finally { if (n === loadSeq.current) setLoading(false); }
   }, [from, to, search, page, selectedBranch]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (currentUser) void refresh(); }, [refresh, currentUser]);
   useEffect(() => { if (!photo) { setPhotoUrl(""); return; } const u = URL.createObjectURL(photo); setPhotoUrl(u); return () => URL.revokeObjectURL(u); }, [photo]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("cl_user");
-    if (saved) setCurrentUser(JSON.parse(saved));
+    fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "me" }) })
+      .then(async r => { const d = await r.json(); if (!r.ok) throw Error(d.error); setCurrentUser(d.user); localStorage.setItem("cl_user", JSON.stringify(d.user)); })
+      .catch(() => { localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); })
+      .finally(() => setAuthLoading(false));
     const dark = localStorage.getItem("cl_dark");
     if (dark === "true") { setDarkMode(true); document.documentElement.classList.add("dark"); }
     fetch("/api/records?action=branches").then(r => r.json()).then((d: any) => setBranches(d.branches || [])).catch(() => {});
@@ -218,27 +223,56 @@ function HomeInner() {
 
   const lines = Object.entries(cart).map(([id, qty]) => ({ p: data.products.find((p) => p.id === id), qty })).filter((x) => x.p) as { p: Product; qty: number }[];
   const total = lines.reduce((s, x) => s + x.p.price * x.qty, 0);
+  const payable = total - discount + (tip && Number.isFinite(cents(tip)) ? cents(tip) : 0);
 
   function quantity(id: string, delta: number) {
     if (busy) return;
     saleId.current = "";
+    setDiscount(0); setCouponCode("");
     setCart((c) => { const n = { ...c }; n[id] = Math.max(0, Math.min(999, (n[id] || 0) + delta)); if (!n[id]) delete n[id]; return n; });
   }
 
   async function checkout() {
     await run(async () => {
+      if (loading || loadFailed) throw Error("Aguarde o carregamento do cardápio.");
       if (!lines.length || lines.some((x) => !x.p.active)) throw Error("Confira os lanches do pedido.");
       const tipValue = tip ? cents(tip) : 0;
+      if (couponCode && !discount) throw Error("Aplique o cupom ou limpe o código antes de finalizar.");
       const finalTotal = total - discount + tipValue;
+      if (!Number.isSafeInteger(tipValue) || tipValue < 0) throw Error("Gorjeta inválida.");
       if (finalTotal < 0) throw Error("Desconto maior que o total.");
       if (payment === "Dinheiro" && (!Number.isFinite(cents(received)) || cents(received) < finalTotal))
         throw Error("Informe o valor recebido.");
       saleId.current ||= crypto.randomUUID();
-      await save({ action: "sale", id: saleId.current, items: lines.map((x) => ({ id: x.p.id, qty: x.qty })), payment, received: payment === "Dinheiro" ? cents(received) : finalTotal, expectedTotal: total, branch: selectedBranch || "principal", employee: currentUser?.name || "", note: saleNote || null, tip: tipValue, discount, coupon: couponCode || null, split });
-      playSound("success");
-      try { await fetch("/api/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ saleId: saleId.current }) }); } catch {}
+      await save({ action: "sale", id: saleId.current, items: lines.map((x) => ({ id: x.p.id, qty: x.qty })), payment, received: payment === "Dinheiro" ? cents(received) : finalTotal, expectedTotal: total, branch: selectedBranch || currentUser?.branch, employee: currentUser?.name || "", note: saleNote || null, tip: tipValue, discount, coupon: couponCode || null, split });
+      const completedSaleId = saleId.current;
+      const completedLines = JSON.stringify(lines.map((x) => ({ id: x.p.id, name: x.p.name, price: x.p.price, qty: x.qty })));
+      const completedTotal = finalTotal;
+      const completedPayment = payment;
+      const completedReceived = payment === "Dinheiro" ? cents(received) : finalTotal;
+      const completedTip = tipValue;
+      const completedDiscount = discount;
+      const completedNote = saleNote || null;
+
       setCart({}); setReceived(""); setSaleNote(""); setTip(""); setSplit(1); setCouponCode(""); setDiscount(0); saleId.current = "";
       setSuccess("Venda registrada com sucesso!");
+
+      // Imprime o cupom automaticamente
+      try {
+        printRecibo({
+          id: completedSaleId,
+          lines: completedLines,
+          total: completedTotal,
+          payment: completedPayment,
+          received: completedReceived,
+          created: new Date().toISOString(),
+          employee: currentUser?.name,
+          branch: selectedBranch || currentUser?.branch,
+          note: completedNote,
+          tip: completedTip,
+          discount: completedDiscount,
+        });
+      } catch {}
     });
   }
 
@@ -248,7 +282,7 @@ function HomeInner() {
       const price = cents(product.price);
       if (!Number.isFinite(price) || price <= 0) throw Error("Preço inválido.");
       productId.current ||= product.id || crypto.randomUUID();
-      await save({ action: "product", id: productId.current, name: product.name, description: product.description, price, category: product.category, stock: parseInt(product.stock) || -1, cost: cents(product.cost) || 0 });
+      await save({ action: "product", id: productId.current, name: product.name, description: product.description, price, category: product.category, stock: Number(product.stock), cost: cents(product.cost) || 0 });
       if (productPhotoInput.current?.files?.[0]) {
         const f = new FormData();
         f.set("action", "upload-product-photo");
@@ -286,26 +320,17 @@ function HomeInner() {
   }
 
   async function deleteSale(id: string) {
-    const ok = await confirmHook.confirm({ title: "Excluir venda?", message: "Tem certeza que deseja excluir esta venda? Você pode desfazer em 5 segundos.", confirmText: "Excluir", variant: "danger" });
+    const ok = await confirmHook.confirm({ title: "Cancelar venda?", message: "O estoque será devolvido e o cancelamento ficará no histórico.", confirmText: "Cancelar venda", variant: "danger" });
     if (!ok) return;
-    const sale = data.sales.find((s: any) => s.id === id);
-    setUndoSale(sale);
-    toastHook.toast("warning", "Venda excluída. Desfazer em 5s?", 5000);
-    if (undoTimeout) clearTimeout(undoTimeout);
-    const t = setTimeout(() => { setUndoSale(null); }, 5000);
-    setUndoTimeout(t);
-    await run(async () => { await save({ action: "delete-sale", id }); });
+    await run(async () => {
+      await save({ action: "delete-sale", id });
+      setUndoSale(data.sales.find(s => s.id === id));
+      setSuccess("Venda cancelada e estoque devolvido.");
+    });
   }
-
   async function undoDelete() {
     if (!undoSale) return;
-    if (undoTimeout) clearTimeout(undoTimeout);
-    await run(async () => {
-      const items = JSON.parse(undoSale.lines);
-      await save({ action: "sale", id: undoSale.id, items: items.map((it: any) => ({ id: it.id, qty: it.qty })), payment: undoSale.payment, received: undoSale.received, expectedTotal: undoSale.total, branch: undoSale.branch, employee: undoSale.employee, note: undoSale.note });
-    });
-    setUndoSale(null);
-    toastHook.toast("success", "Venda restaurada!");
+    await run(async () => { await save({ action: "restore-sale", id: undoSale.id }); setUndoSale(null); setSuccess("Venda restaurada."); });
   }
 
   async function toggleProduct(p: Product) {
@@ -327,14 +352,19 @@ function HomeInner() {
     setPhoto(f);
   }
 
-  function logout() { localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); localStorage.removeItem("cl_onboarded"); document.cookie = "cl_token=; path=/; max-age=0"; setCurrentUser(null); }
+  async function logout() {
+    await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
+    localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); window.location.href = "/login";
+  }
 
+  if (authLoading) return <div className="session-loading" role="status">Carregando sua sessão…</div>;
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
 
   const isOnboarded = typeof window !== "undefined" ? localStorage.getItem("cl_onboarded") === "1" : true;
-  if (!isOnboarded) return <Onboarding onComplete={() => window.location.reload()} />;
+  if (!isOnboarded && !loading && !loadFailed && currentUser.role === "admin" && data.products.length === 0) return <Onboarding onComplete={() => window.location.reload()} />;
 
-  const categories = Array.from(new Set(data.products.map((p) => p.category)));
+  const visibleProducts = data.products.filter(p => p.active && `${p.name} ${p.description}`.toLocaleLowerCase("pt-BR").includes(productSearch.toLocaleLowerCase("pt-BR")));
+  const categories = Array.from(new Set(visibleProducts.map((p) => p.category)));
 
   return (
     <div className="app-layout">
@@ -354,7 +384,7 @@ function HomeInner() {
           </div>
           <div className="sidebar-section">
             <div className="sidebar-section-title">Operação</div>
-            <a href="/pedido" target="_blank" className="sidebar-item">🍔 Cardápio</a>
+            <a href={"/pedido?branch=" + encodeURIComponent(selectedBranch || currentUser.branch)} target="_blank" rel="noopener noreferrer" className="sidebar-item">🍔 Cardápio</a>
             {canAccess(currentUser.plan, "cozinha") && <a href="/cozinha" target="_blank" className="sidebar-item">👨‍🍳 Cozinha</a>}
             {canAccess(currentUser.plan, "cozinha") && <a href="/cozinha-avancada" target="_blank" className="sidebar-item">🔥 Cozinha+</a>}
             {canAccess(currentUser.plan, "mesas") && <a href="/mesas" className="sidebar-item">🍽️ Mesas</a>}
@@ -385,8 +415,8 @@ function HomeInner() {
               <div style={{ fontSize: 10, opacity: .5 }}>{currentUser.role}</div>
             </div>
             <div style={{ display: "flex", gap: 4 }}>
-              <button className="btn btn-ghost btn-sm btn-icon" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
-              <button className="btn btn-ghost btn-sm btn-icon" onClick={logout}><Lock size={14} /></button>
+              <button aria-label="Alternar tema" className="btn btn-ghost btn-sm btn-icon" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
+              <button aria-label="Sair da conta" className="btn btn-ghost btn-sm btn-icon" onClick={logout}><Lock size={14} /></button>
             </div>
           </div>
         </div>
@@ -413,25 +443,27 @@ function HomeInner() {
           {success && <div className="success" role="status">{success}</div>}
           {undoSale && (
             <div style={{ background: "var(--warning-light)", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 13 }}>
-              <span style={{ flex: 1 }}>Venda excluída</span>
+              <span style={{ flex: 1 }}>Venda cancelada</span>
               <button onClick={undoDelete} className="small" style={{ background: "var(--warning)", color: "white", border: "none", fontWeight: 600 }}>Desfazer</button>
             </div>
           )}
 
           {/* === CAIXA === */}
           {tab === "caixa" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
+            <div className="checkout-layout">
               <section className="panel">
                 <h2>Seu cardápio</h2>
-                {!data.products.some((p) => p.active) ? (
-                  <div className="empty"><Utensils size={40} /><h3>O primeiro lanche começa aqui</h3><p>Cadastre seus lanches para começar a vender.</p><button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button></div>
+                <label htmlFor="product-search" className="sr-only">Buscar lanche</label>
+                <input id="product-search" type="search" placeholder="Buscar lanche…" value={productSearch} onChange={e => setProductSearch(e.target.value)} className="product-search" />
+                {loading ? <div className="empty" role="status">Carregando cardápio…</div> : loadFailed ? <div className="empty">O cardápio está indisponível. Use Recarregar para tentar novamente.</div> : !visibleProducts.length ? (
+                  <div className="empty"><Utensils size={40} /><h3>{productSearch ? "Nenhum lanche encontrado" : "O primeiro lanche começa aqui"}</h3><p>{productSearch ? "Tente outro nome na busca." : "Cadastre seus lanches para começar a vender."}</p>{!productSearch && currentUser.role === "admin" && <button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button>}</div>
                 ) : (
-                  <div className="grid">
+                  <div className="category-list">
                     {categories.map((cat) => (
                       <div key={cat}>
                         {categories.length > 1 && <h3 style={{ margin: "8px 0", color: "var(--muted-foreground)", fontSize: 13 }}>{cat}</h3>}
                         <div className="grid">
-                          {data.products.filter((p) => p.active && p.category === cat).map((p) => (
+                          {visibleProducts.filter((p) => p.category === cat).map((p) => (
                             <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
                               {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
                               <strong>{p.name}</strong>
@@ -448,7 +480,7 @@ function HomeInner() {
                 )}
               </section>
 
-              <aside className="panel" style={{ position: "sticky", top: 80 }}>
+              <aside className="panel order-panel">
                 <h2>Pedido atual</h2>
                 {!lines.length && <p className="hint">Adicione os lanches do cliente.</p>}
                 {lines.map(({ p, qty }) => (
@@ -461,12 +493,12 @@ function HomeInner() {
                     </div>
                   </div>
                 ))}
-                <div className="total"><span>Total</span><strong>{brl(total)}</strong></div>
+                <div className="total"><span>Total a pagar</span><strong>{brl(payable)}</strong></div>
 
                 {data.totals.revenue > 0 && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
-                      <span>Meta diária</span>
+                      <span>Receita do período / referência</span>
                       <span>{brl(data.totals.revenue)} / {brl(dailyGoal)}</span>
                     </div>
                     <div style={{ background: "var(--border)", borderRadius: 4, height: 8 }}>
@@ -477,14 +509,14 @@ function HomeInner() {
 
                 <label>Cupom de desconto</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="CÓDIGO" style={{ flex: 1, fontSize: 13, textTransform: "uppercase" }} />
+                  <input value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setDiscount(0); saleId.current = ""; }} placeholder="CÓDIGO" style={{ flex: 1, fontSize: 13, textTransform: "uppercase" }} />
                   <button className="small" disabled={busy} onClick={async () => {
                     if (!couponCode) return;
                     try {
-                      const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply-coupon", code: couponCode, subtotal: total }) });
+                      const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply-coupon", code: couponCode, items: lines.map(x => ({ id: x.p.id, qty: x.qty })) }) });
                       const d = await r.json();
                       if (!r.ok) throw Error(d.error);
-                      setDiscount(d.discount);
+                      setDiscount(d.discount); saleId.current = "";
                       setSuccess(`Cupom aplicado! -${brl(d.discount)}`);
                     } catch (e) { setError((e as Error).message); }
                   }}>Aplicar</button>
@@ -522,8 +554,8 @@ function HomeInner() {
                   </div>
                 </div>
 
-                <button className="primary" style={{ width: "100%", marginTop: 16, padding: "14px 24px", fontSize: 15 }} disabled={busy || !lines.length} onClick={() => void checkout()}>
-                  {busy ? "Finalizando…" : `Finalizar · ${brl(total)}`}
+                <button className="primary" style={{ width: "100%", marginTop: 16, padding: "14px 24px", fontSize: 15 }} disabled={busy || loading || loadFailed || !lines.length} onClick={() => void checkout()}>
+                  {busy ? "Finalizando…" : `Finalizar · ${brl(payable)}`}
                 </button>
               </aside>
             </div>
@@ -671,7 +703,7 @@ function HomeInner() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <b>{brl(s.total)}</b>
                       <button className="btn btn-ghost btn-sm btn-icon" onClick={() => printRecibo(s)} title="Imprimir recibo"><Printer size={14} /></button>
-                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => void deleteSale(s.id)} style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
+                      {currentUser.role === "admin" && <button aria-label="Cancelar venda" className="btn btn-ghost btn-sm btn-icon" onClick={() => void deleteSale(s.id)} style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>}
                     </div>
                   </div>
                 ))}
@@ -711,7 +743,6 @@ function HomeInner() {
                       <label>Cargo</label>
                       <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
                         <option value="caixa">Caixa</option>
-                        <option value="gerente">Gerente</option>
                         <option value="admin">Admin</option>
                       </select>
                       <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={async () => { await save({ action: "create-user", ...newUser }); setShowNewUser(false); setNewUser({ username: "", password: "", name: "", role: "caixa" }); setSuccess("Funcionário criado!"); }}>Salvar</button>
@@ -719,19 +750,19 @@ function HomeInner() {
                   ) : <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => setShowNewUser(true)}><Plus size={14} /> Novo funcionário</button>}
                 </section>
                 <section className="panel">
-                  <h2>Senhas padrão</h2>
-                  <p className="hint">Admin: admin / admin123</p>
-                  <p className="hint">Altere a senha do admin após o primeiro login!</p>
+                  <h2>Acesso ao sistema</h2>
+                  <p className="hint">Cada funcionário deve usar sua própria conta. Somente administradores podem gerenciar usuários e cancelar vendas.</p>
                 </section>
               </div>
               <div className="stats" style={{ marginTop: 16 }}>
                 <section className="panel">
                   <h2>Backup / Restore</h2>
-                  <p className="hint" style={{ marginBottom: 12 }}>Exporte todos os dados ou importe de um backup anterior.</p>
+                  <p className="hint" style={{ marginBottom: 12 }}>Exporte produtos, vendas e gastos. A importação adiciona registros ausentes e preserva os existentes.</p>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="btn btn-outline btn-sm" onClick={async () => {
-                      const r = await fetch("/api/records?action=records&from=2000-01-01&to=2099-12-31&limit=99999");
+                      const r = await fetch("/api/records?action=backup");
                       const d = await r.json();
+                      if (!r.ok) { toastHook.toast("error", d.error); return; }
                       const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a"); a.href = url; a.download = `central-lanches-backup-${today()}.json`; a.click();
@@ -742,7 +773,7 @@ function HomeInner() {
                       <input type="file" accept=".json" style={{ display: "none" }} onChange={async (e) => {
                         const file = e.target.files?.[0]; if (!file) return;
                         const text = await file.text();
-                        try { const d = JSON.parse(text); await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "import", data: d }) }); toastHook.toast("success", "Backup restaurado!"); await refresh(); }
+                        try { const d = JSON.parse(text); await save({ action: "import", data: d }); toastHook.toast("success", "Backup restaurado!"); await refresh(); }
                         catch { toastHook.toast("error", "Arquivo inválido."); }
                       }} />
                       <Package size={14} /> Importar JSON

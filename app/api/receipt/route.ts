@@ -1,11 +1,12 @@
+import { withSession, requireAdmin, resolveBranch, HttpError, apiError } from "@/lib/session";
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { expenses } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+export const GET = withSession(async (req, session) => {
   try {
     const id = new URL(req.url).searchParams.get("id");
     if (!id || !/^[a-zA-Z0-9-]{10,80}$/.test(id)) {
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
     }
 
     const db = getDb();
-    const expense = await db.select().from(expenses).where(eq(expenses.id, id)).get();
+    const expense = await db.select().from(expenses).where(and(eq(expenses.tenantId, session.tenantId), eq(expenses.id, id))).get();
 
     if (!expense?.receipt) {
       return new NextResponse("Comprovante não encontrado", { status: 404 });
@@ -27,4 +28,4 @@ export async function GET(req: Request) {
   } catch {
     return new NextResponse("Foto indisponível", { status: 503 });
   }
-}
+});
