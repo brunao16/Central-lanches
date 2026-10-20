@@ -724,14 +724,11 @@ function HomeInner() {
               </div>
               <div className="stats">
                 <section className="panel">
-                  <h2>Filiais</h2>
-                  {branches.map((b) => <div className="row" key={b.id}><strong>{b.name}</strong></div>)}
-                  {showNewBranch ? (
-                    <div style={{ marginTop: 12 }}>
-                      <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} placeholder="Nome da filial" />
-                      <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={async () => { await save({ action: "create-branch", name: newBranchName }); setShowNewBranch(false); setNewBranchName(""); const d = await fetch("/api/records?action=branches").then((r) => r.json()); setBranches(d.branches); setSuccess("Filial criada!"); }}>Salvar</button>
-                    </div>
-                  ) : <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => setShowNewBranch(true)}><Plus size={14} /> Nova filial</button>}
+                  <h2>Estabelecimento</h2>
+                  <div className="row">
+                    <strong>Central Lanches</strong>
+                    <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Loja Principal</span>
+                  </div>
                 </section>
                 <section className="panel">
                   <h2>Funcionários</h2>
