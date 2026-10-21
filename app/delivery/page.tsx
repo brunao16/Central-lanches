@@ -20,6 +20,9 @@ export default function DeliveryPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
+  const [driverFilter, setDriverFilter] = useState("");
+  const [showDriverSettlement, setShowDriverSettlement] = useState(false);
+  const DRIVERS = ["Carlos", "Lucas", "Mateus", "Gabriel", "Outro"];
 
   async function refresh() {
     const params = new URLSearchParams({ action: "deliveries" });
@@ -33,12 +36,35 @@ export default function DeliveryPage() {
   useEffect(() => { refresh(); }, [filter]);
   useEffect(() => { const i = setInterval(refresh, 10000); return () => clearInterval(i); }, [filter]);
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, driver?: string) {
+    const payload: any = { action: "update-delivery", id, status };
+    if (driver) payload.driver = driver;
     await fetch("/api/services", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update-delivery", id, status }),
+      body: JSON.stringify(payload),
     });
     refresh();
+  }
+
+  async function assignDriver(id: string, driver: string) {
+    await fetch("/api/services", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update-delivery", id, status: "picked", driver }),
+    });
+    refresh();
+  }
+
+  function sendTrackingWhatsapp(d: Delivery) {
+    if (!d.customerPhone) return;
+    const phone = d.customerPhone.replace(/\D/g, "");
+    const msg = `🛵 *Olá, ${d.customerName}!*
+
+Seu pedido da *Central Lanches* (#${d.id.slice(-6).toUpperCase()}) acabou de sair para entrega! ${d.driver ? `\n🏍️ *Motoboy:* ${d.driver}` : ""}
+
+📍 *Endereço:* ${d.customerAddress}
+
+Em poucos minutos estará aí! Qualquer dúvida nos chame aqui. Bom apetite! 😊🍔`;
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
   function printDeliverySlip(d: Delivery) {
@@ -101,7 +127,15 @@ export default function DeliveryPage() {
         <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
           <Truck size={24} color="#d84416" />
           <strong style={{ fontSize: 20 }}>Delivery</strong>
-          <span style={{ marginLeft: "auto", color: "#999", fontSize: 13 }}>{deliveries.length} pedidos</span>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+            <button 
+              onClick={() => setShowDriverSettlement(true)}
+              style={{ background: "#d84416", color: "white", border: "none", padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            >
+              📊 Fechamento Motoboys
+            </button>
+            <span style={{ color: "#999", fontSize: 13 }}>{deliveries.length} pedidos</span>
+          </div>
         </div>
       </header>
 
@@ -142,18 +176,81 @@ export default function DeliveryPage() {
                 {d.note && <p style={{ color: "#f59e0b" }}>📝 {d.note}</p>}
               </div>
 
+              {/* SELEÇÃO DO MOTOBOY */}
+              <div style={{ background: "#f8fafc", padding: "8px 12px", borderRadius: 8, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+                <span style={{ color: "#475569", fontWeight: 600 }}>🛵 Entregador:</span>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select 
+                    value={d.driver || ""} 
+                    onChange={(e) => assignDriver(d.id, e.target.value)}
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12, fontWeight: 600 }}
+                  >
+                    <option value="">Definir motoboy...</option>
+                    {DRIVERS.map(drv => <option key={drv} value={drv}>{drv}</option>)}
+                  </select>
+                </div>
+              </div>
+
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <button onClick={() => printDeliverySlip(d)} title="Imprimir canhoto do motoboy" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #1d2532", background: "white", color: "#1d2532", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
                   🖨️ Canhoto
                 </button>
+
+                {d.customerPhone && (
+                  <button 
+                    onClick={() => sendTrackingWhatsapp(d)} 
+                    title="Avisar cliente que saiu para entrega" 
+                    style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#25d366", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}
+                  >
+                    📲 Rastreio WhatsApp
+                  </button>
+                )}
+
                 {d.status === "pending" && <button onClick={() => updateStatus(d.id, "accepted")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#3b82f6", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Aceitar</button>}
                 {d.status === "accepted" && <button onClick={() => updateStatus(d.id, "picked")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#d84416", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Saiu para entrega</button>}
                 {d.status === "picked" && <button onClick={() => updateStatus(d.id, "delivered")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#16a34a", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Entregue</button>}
-                {d.customerPhone && <a href={`https://wa.me/55${d.customerPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #dce2e8", background: "white", cursor: "pointer", fontSize: 13, textDecoration: "none", color: "#1d2532" }}>WhatsApp</a>}
               </div>
             </div>
           );
         })}
+
+        {/* MODAL / PAINEL DE ACERTO DE MOTOBOYS NO FINAL DA NOITE */}
+        {showDriverSettlement && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div style={{ background: "white", borderRadius: 16, maxWidth: 500, width: "100%", padding: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>🛵 Fechamento de Motoboys (Hoje)</h3>
+                <button onClick={() => setShowDriverSettlement(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}>✕</button>
+              </div>
+
+              <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 16 }}>
+                {DRIVERS.map(drv => {
+                  const drvDeliveries = deliveries.filter(d => d.driver === drv);
+                  if (!drvDeliveries.length) return null;
+                  const taxaPadraoPorCorrida = 7.00; // R$ 7,00 por corrida
+                  const totalTaxas = drvDeliveries.length * taxaPadraoPorCorrida;
+
+                  return (
+                    <div key={drv} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 15 }}>
+                        <span>{drv}</span>
+                        <span style={{ color: "#d84416" }}>{drvDeliveries.length} entregas</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                        <span>Diária / Taxas a pagar ao motoboy:</span>
+                        <strong style={{ color: "#16a34a" }}>R$ {totalTaxas.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button onClick={() => setShowDriverSettlement(false)} style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#1d2532", color: "white", border: "none", fontWeight: 700, cursor: "pointer" }}>
+                Fechar Relatório
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

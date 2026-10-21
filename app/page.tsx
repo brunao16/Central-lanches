@@ -614,6 +614,22 @@ function HomeInner() {
                   ))}
                 </div>
 
+                {payment === "Pix" && payable > 0 && (
+                  <div style={{ background: "var(--primary-light)", border: "1px solid var(--primary)", borderRadius: 12, padding: 14, textAlign: "center", margin: "10px 0" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", marginBottom: 8 }}>
+                      ⚡ QR Code PIX · {brl(payable)}
+                    </div>
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`00020126580014br.gov.bcb.pix0136centrallanches@pix.com.br520400005303986540${(payable/100).toFixed(2)}5802BR5915Central Lanches6009Sao Paulo62070503***6304`)}`}
+                      alt="PIX QR Code"
+                      style={{ width: 140, height: 140, margin: "0 auto", borderRadius: 8, background: "white", padding: 6, boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
+                    />
+                    <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 8 }}>
+                      Mostre para o cliente ler com o aplicativo do banco
+                    </p>
+                  </div>
+                )}
+
                 {payment === "Dinheiro" && (<><label>Valor recebido (R$)</label><input inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" /></>)}
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
