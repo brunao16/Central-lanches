@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
@@ -118,6 +118,7 @@ function HomeInner() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [productSearch, setProductSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [success, setSuccess] = useState("");
   const [from, setFrom] = useState(today().slice(0, 7) + "-01");
   const [to, setTo] = useState(today());
@@ -363,8 +364,38 @@ function HomeInner() {
   const isOnboarded = typeof window !== "undefined" ? localStorage.getItem("cl_onboarded") === "1" : true;
   if (!isOnboarded && !loading && !loadFailed && currentUser.role === "admin" && data.products.length === 0) return <Onboarding onComplete={() => window.location.reload()} />;
 
-  const visibleProducts = data.products.filter(p => p.active && `${p.name} ${p.description}`.toLocaleLowerCase("pt-BR").includes(productSearch.toLocaleLowerCase("pt-BR")));
-  const categories = Array.from(new Set(visibleProducts.map((p) => p.category)));
+  const allCategories = useMemo(() => {
+    const list = Array.from(new Set(data.products.filter(p => p.active).map(p => p.category)));
+    const order = ["Lanches", "Porções", "Barcas", "Adicionais", "Bebidas", "Geral"];
+    return ["Todos", ...list.sort((a, b) => {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b);
+    })];
+  }, [data.products]);
+
+  const visibleProducts = data.products.filter(p => {
+    if (!p.active) return false;
+    const matchesSearch = `${p.name} ${p.description}`.toLocaleLowerCase("pt-BR").includes(productSearch.toLocaleLowerCase("pt-BR"));
+    const matchesCat = selectedCategory === "Todos" || p.category === selectedCategory;
+    return matchesSearch && matchesCat;
+  });
+
+  const categories = useMemo(() => {
+    const list = Array.from(new Set(visibleProducts.map((p) => p.category)));
+    const order = ["Lanches", "Porções", "Barcas", "Adicionais", "Bebidas", "Geral"];
+    return list.sort((a, b) => {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [visibleProducts]);
 
   return (
     <div className="app-layout">
@@ -455,27 +486,74 @@ function HomeInner() {
                 <h2>Seu cardápio</h2>
                 <label htmlFor="product-search" className="sr-only">Buscar lanche</label>
                 <input id="product-search" type="search" placeholder="Buscar lanche…" value={productSearch} onChange={e => setProductSearch(e.target.value)} className="product-search" />
+                {/* BARRA DE CATEGORIAS / SEÇÕES NO CAIXA */}
+                <div style={{ display: "flex", gap: 6, margin: "12px 0 16px", overflowX: "auto", paddingBottom: 4 }}>
+                  {allCategories.map((cat: string) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 20,
+                        border: selectedCategory === cat ? "2px solid var(--primary)" : "1px solid var(--border)",
+                        background: selectedCategory === cat ? "var(--primary-light)" : "var(--card)",
+                        color: selectedCategory === cat ? "var(--primary)" : "var(--foreground)",
+                        fontWeight: selectedCategory === cat ? 700 : 500,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s"
+                      }}
+                    >
+                      {cat === "Todos" && "📋 Todos"}
+                      {cat === "Lanches" && "🍔 Lanches"}
+                      {cat === "Porções" && "🍟 Porções"}
+                      {cat === "Barcas" && "🛶 Barcas"}
+                      {cat === "Adicionais" && "🥓 Adicionais"}
+                      {cat === "Bebidas" && "🥤 Bebidas"}
+                      {!["Todos", "Lanches", "Porções", "Barcas", "Adicionais", "Bebidas"].includes(cat) && `🍽️ ${cat}`}
+                    </button>
+                  ))}
+                </div>
+
                 {loading ? <div className="empty" role="status">Carregando cardápio…</div> : loadFailed ? <div className="empty">O cardápio está indisponível. Use Recarregar para tentar novamente.</div> : !visibleProducts.length ? (
-                  <div className="empty"><Utensils size={40} /><h3>{productSearch ? "Nenhum lanche encontrado" : "O primeiro lanche começa aqui"}</h3><p>{productSearch ? "Tente outro nome na busca." : "Cadastre seus lanches para começar a vender."}</p>{!productSearch && currentUser.role === "admin" && <button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button>}</div>
+                  <div className="empty"><Utensils size={40} /><h3>{productSearch ? "Nenhum lanche encontrado" : "Nenhum item nesta seção"}</h3><p>{productSearch ? "Tente outro nome na busca." : "Selecione outra categoria ou cadastre seus itens."}</p>{!productSearch && currentUser.role === "admin" && <button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button>}</div>
                 ) : (
-                  <div className="category-list">
-                    {categories.map((cat) => (
-                      <div key={cat}>
-                        {categories.length > 1 && <h3 style={{ margin: "8px 0", color: "var(--muted-foreground)", fontSize: 13 }}>{cat}</h3>}
-                        <div className="grid">
-                          {visibleProducts.filter((p) => p.category === cat).map((p) => (
-                            <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
-                              {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
-                              <strong>{p.name}</strong>
-                              <span className="hint">{p.description || "Preparado na hora"}</span>
-                              <b>{brl(p.price)}</b>
-                              {p.stock >= 0 && <span className="hint" style={{ color: p.stock === 0 ? "var(--danger)" : p.stock < 5 ? "var(--warning)" : undefined, fontWeight: p.stock < 5 ? 600 : undefined }}>{p.stock === 0 ? "ESGOTADO" : `${p.stock} em estoque`}</span>}
-                              <span className="hint">{p.stock === 0 ? "" : "+ Adicionar"}</span>
-                            </button>
-                          ))}
+                  <div className="category-list" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    {categories.map((cat: string) => {
+                      const itemsInCat = visibleProducts.filter((p) => p.category === cat);
+                      if (!itemsInCat.length) return null;
+
+                      const icon = cat === "Lanches" ? "🍔" : cat === "Porções" ? "🍟" : cat === "Barcas" ? "🛶" : cat === "Adicionais" ? "🥓" : cat === "Bebidas" ? "🥤" : "🍽️";
+
+                      return (
+                        <div key={cat} style={{ background: "var(--card)", borderRadius: 12, border: "1px solid var(--border)", padding: "16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 10, marginBottom: 14 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 18 }}>{icon}</span>
+                              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "var(--foreground)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{cat}</h3>
+                            </div>
+                            <span style={{ fontSize: 11, background: "var(--secondary)", color: "var(--muted-foreground)", fontWeight: 700, padding: "2px 8px", borderRadius: 12 }}>
+                              {itemsInCat.length} {itemsInCat.length === 1 ? "item" : "itens"}
+                            </span>
+                          </div>
+
+                          <div className="grid">
+                            {itemsInCat.map((p) => (
+                              <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
+                                {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
+                                <strong>{p.name}</strong>
+                                <span className="hint">{p.description || "Preparado na hora"}</span>
+                                <b>{brl(p.price)}</b>
+                                {p.stock >= 0 && <span className="hint" style={{ color: p.stock === 0 ? "var(--danger)" : p.stock < 5 ? "var(--warning)" : undefined, fontWeight: p.stock < 5 ? 600 : undefined }}>{p.stock === 0 ? "ESGOTADO" : `${p.stock} em estoque`}</span>}
+                                <span className="hint">{p.stock === 0 ? "" : "+ Adicionar"}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
