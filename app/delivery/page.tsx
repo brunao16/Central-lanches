@@ -1,257 +1,161 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Package, Clock, Truck, CheckCircle, MapPin, Phone, User } from "lucide-react";
-
-type Delivery = {
-  id: string; saleId: string; customerName: string; customerPhone: string;
-  customerAddress: string; status: string; driver: string; created: string;
-  pickedAt: string | null; deliveredAt: string | null; note: string | null;
-};
-
-const statusMap: Record<string, { label: string; icon: any; color: string; bg: string }> = {
-  pending: { label: "Aguardando", icon: Clock, color: "#f59e0b", bg: "#fffbeb" },
-  accepted: { label: "Aceito", icon: User, color: "#3b82f6", bg: "#eff6ff" },
-  picked: { label: "Saiu para entrega", icon: Truck, color: "#d84416", bg: "#fff0e7" },
-  delivered: { label: "Entregue", icon: CheckCircle, color: "#16a34a", bg: "#f0fdf4" },
-};
+import AdminShell from "@/components/layout/AdminShell";
+import { formatCurrency, createWhatsAppLink } from "@/lib/utils";
+import { Bike, Phone, MapPin, Send, CheckCircle2, Clock } from "lucide-react";
 
 export default function DeliveryPage() {
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [deliveries, setDeliveries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
-  const [driverFilter, setDriverFilter] = useState("");
-  const [showDriverSettlement, setShowDriverSettlement] = useState(false);
-  const DRIVERS = ["Carlos", "Lucas", "Mateus", "Gabriel", "Outro"];
 
-  async function refresh() {
-    const params = new URLSearchParams({ action: "deliveries" });
-    if (filter) params.set("status", filter);
-    const r = await fetch("/api/services?" + params);
-    const d = await r.json();
-    setDeliveries(d.deliveries || []);
-    setLoading(false);
+  async function loadDeliveries() {
+    try {
+      const res = await fetch("/api/orders?type=DELIVERY&limit=50");
+      const d = await res.json();
+      setDeliveries(d.orders || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { refresh(); }, [filter]);
-  useEffect(() => { const i = setInterval(refresh, 10000); return () => clearInterval(i); }, [filter]);
+  useEffect(() => {
+    loadDeliveries();
+    const interval = setInterval(loadDeliveries, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-  async function updateStatus(id: string, status: string, driver?: string) {
-    const payload: any = { action: "update-delivery", id, status };
-    if (driver) payload.driver = driver;
-    await fetch("/api/services", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    refresh();
-  }
-
-  async function assignDriver(id: string, driver: string) {
-    await fetch("/api/services", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update-delivery", id, status: "picked", driver }),
-    });
-    refresh();
-  }
-
-  function sendTrackingWhatsapp(d: Delivery) {
-    if (!d.customerPhone) return;
-    const phone = d.customerPhone.replace(/\D/g, "");
-    const msg = `🛵 *Olá, ${d.customerName}!*
-
-Seu pedido da *Central Lanches* (#${d.id.slice(-6).toUpperCase()}) acabou de sair para entrega! ${d.driver ? `\n🏍️ *Motoboy:* ${d.driver}` : ""}
-
-📍 *Endereço:* ${d.customerAddress}
-
-Em poucos minutos estará aí! Qualquer dúvida nos chame aqui. Bom apetite! 😊🍔`;
-    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
-  }
-
-  function printDeliverySlip(d: Delivery) {
-    const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Canhoto Delivery #${d.id.slice(-6).toUpperCase()}</title>
-  <style>
-    @page { size: 80mm auto; margin: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; width: 72mm; margin: 4mm auto; color: #000; font-size: 13px; line-height: 1.3; }
-    .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
-    .title { font-size: 18px; font-weight: 900; }
-    .box { border: 1px solid #000; padding: 8px; border-radius: 4px; margin: 8px 0; }
-    .badge { display: inline-block; background: #000; color: #fff; font-size: 14px; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
-    .footer { text-align: center; font-size: 11px; margin-top: 10px; border-top: 1px dashed #000; padding-top: 6px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="title">🛵 CENTRAL LANCHES</div>
-    <div style="font-weight: bold; font-size: 14px;">CANHOTO DE ENTREGA</div>
-    <div class="badge">#${d.id.slice(-6).toUpperCase()}</div>
-    <div style="font-size: 11px; margin-top: 4px;">Data: ${now}</div>
-  </div>
-
-  <div class="box">
-    <div style="font-size: 11px; text-transform: uppercase; color: #555;">Destinatário:</div>
-    <div style="font-size: 15px; font-weight: bold;">${d.customerName}</div>
-    <div style="font-size: 13px; margin-top: 4px;">📞 ${d.customerPhone || "Sem telefone"}</div>
-    <div style="margin-top: 6px; font-size: 13px; font-weight: bold;">📍 Endereço:</div>
-    <div style="font-size: 14px;">${d.customerAddress}</div>
-    ${d.note ? `<div style="margin-top: 6px; color: #000; font-style: italic;">📝 Obs: ${d.note}</div>` : ""}
-  </div>
-
-  <div style="margin-top: 12px; font-size: 12px;">
-    Assinatura do Recebedor:<br><br>
-    __________________________________
-  </div>
-
-  <div class="footer">
-    Bom trabalho e dirija com cuidado! 🏍️
-  </div>
-  <script>
-    window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; };
-  </script>
-</body>
-</html>`;
-    const win = window.open("", "_blank", "width=380,height=500");
-    if (!win) return;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+  async function updateStatus(id: string, status: string) {
+    try {
+      await fetch(`/api/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      loadDeliveries();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return (
-    <div style={{ fontFamily: "Arial", background: "#f3f5f7", minHeight: "100vh" }}>
-      <header style={{ background: "#1d2532", color: "white", padding: "20px 24px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
-          <Truck size={24} color="#d84416" />
-          <strong style={{ fontSize: 20 }}>Delivery</strong>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-            <button 
-              onClick={() => setShowDriverSettlement(true)}
-              style={{ background: "#d84416", color: "white", border: "none", padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-            >
-              📊 Fechamento Motoboys
-            </button>
-            <span style={{ color: "#999", fontSize: 13 }}>{deliveries.length} pedidos</span>
+    <AdminShell>
+      <div className="p-4 md:p-6 space-y-4 max-w-7xl">
+        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-red-50 text-primary">
+              <Bike size={22} />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-gray-900 tracking-tight leading-none">
+                Gestão de Entregas & Motoboys
+              </h1>
+              <span className="text-xs text-gray-500">Controle de pedidos delivery e mensagens WhatsApp</span>
+            </div>
           </div>
         </div>
-      </header>
 
-      <main style={{ maxWidth: 800, margin: "0 auto", padding: 16 }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          {["", "pending", "accepted", "picked", "delivered"].map(s => (
-            <button key={s} onClick={() => setFilter(s)} style={{ padding: "8px 16px", borderRadius: 20, border: filter === s ? "2px solid #d84416" : "1px solid #dce2e8", background: filter === s ? "#fff0e7" : "white", cursor: "pointer", fontSize: 13, fontWeight: filter === s ? 700 : 400 }}>
-              {s === "" ? "Todos" : statusMap[s]?.label}
-            </button>
-          ))}
-        </div>
+        {/* Lista de Pedidos Delivery */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {deliveries.map((order) => {
+            const waMsg = `Olá, ${order.customerName || "Cliente"}! Seu pedido ${order.code} da Central Lanches no valor de ${formatCurrency(order.total)} está: ${order.status === "SAIU_ENTREGA" ? "a caminho com o entregador! 🛵" : order.status}.`;
+            const waLink = order.customerPhone ? createWhatsAppLink(order.customerPhone, waMsg) : "#";
 
-        {loading ? <p className="notice">Carregando…</p> : deliveries.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 60, color: "#657184" }}><Package size={48} /><h2>Nenhum delivery</h2></div>
-        ) : deliveries.map(d => {
-          const s = statusMap[d.status] || statusMap.pending;
-          const Icon = s.icon;
-          const created = new Date(d.created);
-          const mins = Math.floor((Date.now() - created.getTime()) / 60000);
-
-          return (
-            <div key={d.id} style={{ background: "white", borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `4px solid ${s.color}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <Icon size={18} color={s.color} />
-                    <strong style={{ color: s.color }}>{s.label}</strong>
-                    <span style={{ color: "#999", fontSize: 12 }}>{mins}min</span>
+            return (
+              <div
+                key={order.id}
+                className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm space-y-3.5 flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-base text-gray-900">{order.code}</span>
+                    <span
+                      className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                        order.status === "ENTREGUE"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : order.status === "SAIU_ENTREGA"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {order.status}
+                    </span>
                   </div>
-                  <strong style={{ fontSize: 16 }}>{d.customerName}</strong>
-                </div>
-                <span style={{ background: s.bg, color: s.color, padding: "4px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>#{d.id.slice(-6).toUpperCase()}</span>
-              </div>
 
-              <div style={{ fontSize: 13, color: "#657184", marginBottom: 8 }}>
-                <p><MapPin size={14} style={{ display: "inline" }} /> {d.customerAddress}</p>
-                {d.customerPhone && <p><Phone size={14} style={{ display: "inline" }} /> {d.customerPhone}</p>}
-                {d.note && <p style={{ color: "#f59e0b" }}>📝 {d.note}</p>}
-              </div>
-
-              {/* SELEÇÃO DO MOTOBOY */}
-              <div style={{ background: "#f8fafc", padding: "8px 12px", borderRadius: 8, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
-                <span style={{ color: "#475569", fontWeight: 600 }}>🛵 Entregador:</span>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <select 
-                    value={d.driver || ""} 
-                    onChange={(e) => assignDriver(d.id, e.target.value)}
-                    style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12, fontWeight: 600 }}
-                  >
-                    <option value="">Definir motoboy...</option>
-                    {DRIVERS.map(drv => <option key={drv} value={drv}>{drv}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <button onClick={() => printDeliverySlip(d)} title="Imprimir canhoto do motoboy" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #1d2532", background: "white", color: "#1d2532", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
-                  🖨️ Canhoto
-                </button>
-
-                {d.customerPhone && (
-                  <button 
-                    onClick={() => sendTrackingWhatsapp(d)} 
-                    title="Avisar cliente que saiu para entrega" 
-                    style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#25d366", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    📲 Rastreio WhatsApp
-                  </button>
-                )}
-
-                {d.status === "pending" && <button onClick={() => updateStatus(d.id, "accepted")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#3b82f6", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Aceitar</button>}
-                {d.status === "accepted" && <button onClick={() => updateStatus(d.id, "picked")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#d84416", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Saiu para entrega</button>}
-                {d.status === "picked" && <button onClick={() => updateStatus(d.id, "delivered")} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#16a34a", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Entregue</button>}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* MODAL / PAINEL DE ACERTO DE MOTOBOYS NO FINAL DA NOITE */}
-        {showDriverSettlement && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            <div style={{ background: "white", borderRadius: 16, maxWidth: 500, width: "100%", padding: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>🛵 Fechamento de Motoboys (Hoje)</h3>
-                <button onClick={() => setShowDriverSettlement(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}>✕</button>
-              </div>
-
-              <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 16 }}>
-                {DRIVERS.map(drv => {
-                  const drvDeliveries = deliveries.filter(d => d.driver === drv);
-                  if (!drvDeliveries.length) return null;
-                  const taxaPadraoPorCorrida = 7.00; // R$ 7,00 por corrida
-                  const totalTaxas = drvDeliveries.length * taxaPadraoPorCorrida;
-
-                  return (
-                    <div key={drv} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 12, marginBottom: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 15 }}>
-                        <span>{drv}</span>
-                        <span style={{ color: "#d84416" }}>{drvDeliveries.length} entregas</span>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div className="font-bold text-gray-900">{order.customerName || "Cliente Sem Nome"}</div>
+                    {order.customerPhone && (
+                      <div className="flex items-center gap-1.5 text-gray-500">
+                        <Phone size={13} />
+                        <span>{order.customerPhone}</span>
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                        <span>Diária / Taxas a pagar ao motoboy:</span>
-                        <strong style={{ color: "#16a34a" }}>R$ {totalTaxas.toFixed(2)}</strong>
-                      </div>
+                    )}
+                    <div className="flex items-start gap-1.5 text-gray-500">
+                      <MapPin size={13} className="flex-shrink-0 mt-0.5 text-red-500" />
+                      <span>{order.deliveryAddress || "Endereço não informado"}</span>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
 
-              <button onClick={() => setShowDriverSettlement(false)} style={{ width: "100%", padding: "12px", borderRadius: 8, background: "#1d2532", color: "white", border: "none", fontWeight: 700, cursor: "pointer" }}>
-                Fechar Relatório
-              </button>
+                  {/* Itens */}
+                  <div className="bg-gray-50 p-2.5 rounded-xl text-xs space-y-1">
+                    {order.items?.map((it: any) => (
+                      <div key={it.id} className="flex justify-between">
+                        <span>{it.quantity}x {it.productName}</span>
+                        <span className="font-semibold">{formatCurrency(it.totalPrice)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between font-black text-gray-900 border-t border-gray-200 pt-1.5 mt-1.5">
+                      <span>Total c/ Taxa:</span>
+                      <span className="text-primary">{formatCurrency(order.total)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  {order.customerPhone && (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Send size={14} />
+                      <span>Notificar no WhatsApp</span>
+                    </a>
+                  )}
+
+                  <div className="flex gap-2">
+                    {order.status !== "SAIU_ENTREGA" && order.status !== "ENTREGUE" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "SAIU_ENTREGA")}
+                        className="flex-1 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all"
+                      >
+                        Despachar
+                      </button>
+                    )}
+                    {order.status !== "ENTREGUE" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "ENTREGUE")}
+                        className="flex-1 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all"
+                      >
+                        Confirmar Entrega
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {deliveries.length === 0 && (
+            <div className="col-span-full bg-white p-12 text-center text-gray-400 rounded-2xl border border-dashed border-gray-200">
+              <Bike size={40} className="mx-auto mb-2 text-gray-300" />
+              <p className="text-sm font-semibold">Nenhuma entrega no momento</p>
             </div>
-          </div>
-        )}
-      </main>
-    </div>
+          )}
+        </div>
+      </div>
+    </AdminShell>
   );
 }

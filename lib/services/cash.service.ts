@@ -1,0 +1,119 @@
+import { prisma } from "@/lib/prisma";
+import { CashMovementType } from "@prisma/client";
+
+export class CashService {
+  /**
+   * Retorna o caixa atualmente aberto ou null.
+   */
+  static async getCurrentRegister() {
+    return await prisma.cashRegister.findFirst({
+      where: { status: "ABERTO" },
+      include: {
+        movements: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { openedAt: "desc" },
+    });
+  }
+
+  /**
+   * Abre um novo turno de caixa com valor inicial.
+   */
+  static async openRegister(initialAmountCents: number, notes?: string) {
+    const existing = await this.getCurrentRegister();
+    if (existing) {
+      throw new Error("Já existe um caixa aberto no momento.");
+    }
+
+    return await prisma.cashRegister.create({
+      data: {
+        initialAmount: initialAmountCents,
+        status: "ABERTO",
+        notes: notes || null,
+        movements: {
+          create: {
+            type: CashMovementType.ABERTURA,
+            amount: initialAmountCents,
+            description: "Fundo de troco inicial",
+          },
+        },
+      },
+      include: {
+        movements: true,
+      },
+    });
+  }
+
+  /**
+   * Registra sangria (retirada de dinheiro do caixa).
+   */
+  static async addBleed(amountCents: number, description: string) {
+    const register = await this.getCurrentRegister();
+    if (!register) throw new Error("Não há caixa aberto para realizar sangria.");
+
+    return await prisma.cashMovement.create({
+      data: {
+        registerId: register.id,
+        type: CashMovementType.SANGRIA,
+        amount: amountCents,
+        description: description || "Sangria de caixa",
+      },
+    });
+  }
+
+  /**
+   * Registra suprimento (entrada extra de dinheiro no caixa).
+   */
+  static async addSupply(amountCents: number, description: string) {
+    const register = await this.getCurrentRegister();
+    if (!register) throw new Error("Não há caixa aberto para realizar suprimento.");
+
+    return await prisma.cashMovement.create({
+      data: {
+        registerId: register.id,
+        type: CashMovementType.SUPRIMENTO,
+        amount: amountCents,
+        description: description || "Suprimento de troco",
+      },
+    });
+  }
+
+  /**
+   * Fecha o caixa calculando o saldo esperado vs saldo contado na gaveta.
+   */
+  static async closeRegister(finalAmountCents: number, notes?: string) {
+    const register = await this.getCurrentRegister();
+    if (!register) throw new Error("Não há caixa aberto para fechar.");
+
+    let expected = register.initialAmount;
+    for (const mov of register.movements) {
+      if (mov.type === CashMovementType.VENDA || mov.type === CashMovementType.SUPRIMENTO) {
+        expected += mov.amount;
+      } else if (mov.type === CashMovementType.SANGRIA) {
+        expected -= mov.amount;
+      }
+    }
+
+    return await prisma.cashRegister.update({
+      where: { id: register.id },
+      data: {
+        status: "FECHADO",
+        closedAt: new Date(),
+        finalAmount: finalAmountCents,
+        expectedAmount: expected,
+        notes: notes || null,
+        movements: {
+          create: {
+            type: CashMovementType.FECHAMENTO,
+            amount: finalAmountCents,
+            description: `Fechamento do caixa. Esperado: R$ ${(expected / 100).toFixed(2)}, Contado: R$ ${(finalAmountCents / 100).toFixed(2)}`,
+          },
+        },
+      },
+      include: {
+        movements: true,
+      },
+    });
+  }
+}

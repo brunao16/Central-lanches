@@ -1,186 +1,260 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { Clock, Check, ChefHat, Bell, Printer } from "lucide-react";
-import { printComanda } from "@/lib/print";
-
-type Order = {
-  id: string;
-  created: string;
-  items: string;
-  status: string;
-  total: number;
-  table_num: string;
-  note: string | null;
-  ready_at: string | null;
-  delivered_at: string | null;
-};
-
-const statusMap: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: "Pendente", color: "#c32626", bg: "#fef2f2" },
-  preparing: { label: "Preparando", color: "#d84416", bg: "#fff0e7" },
-  ready: { label: "Pronto!", color: "#16a34a", bg: "#f0fdf4" },
-  delivered: { label: "Entregue", color: "#657184", bg: "#f3f5f7" },
-};
-
-function playBell() {
-  try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.value = 0.3;
-    osc.start();
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-    osc.stop(ctx.currentTime + 0.4);
-  } catch {}
-}
+import { useEffect, useState } from "react";
+import AdminShell from "@/components/layout/AdminShell";
+import { formatTime } from "@/lib/utils";
+import { ChefHat, Clock, Check, ArrowRight, RefreshCw, AlertCircle } from "lucide-react";
 
 export default function CozinhaPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const prevCount = useRef(0);
 
-  async function refresh() {
+  async function fetchKitchenOrders() {
     try {
-      const r = await fetch("/api/orders");
-      const d = await r.json();
-      setOrders(d.orders || []);
-      setLoading(false);
+      const res = await fetch("/api/orders?status=NOVO&limit=50");
+      const d1 = await res.json();
+      const res2 = await fetch("/api/orders?status=PREPARANDO&limit=50");
+      const d2 = await res2.json();
+      const res3 = await fetch("/api/orders?status=PRONTO&limit=20");
+      const d3 = await res3.json();
 
-      if (prevCount.current > 0 && d.orders?.length > prevCount.current) {
-        playBell();
-      }
-      prevCount.current = d.orders?.length || 0;
-    } catch {}
+      const combined = [
+        ...(d1.orders || []),
+        ...(d2.orders || []),
+        ...(d3.orders || []),
+      ];
+      setOrders(combined);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
 
+  // Polling automático a cada 5 segundos
   useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 5000);
+    fetchKitchenOrders();
+    const interval = setInterval(fetchKitchenOrders, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  async function updateStatus(id: string, status: string) {
-    await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update-status", id, status }),
-    });
-    refresh();
+  async function updateStatus(orderId: string, nextStatus: string) {
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      fetchKitchenOrders();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  const pending = orders.filter((o) => o.status === "pending");
-  const preparing = orders.filter((o) => o.status === "preparing");
-  const ready = orders.filter((o) => o.status === "ready");
+  const novos = orders.filter((o) => o.status === "NOVO");
+  const preparando = orders.filter((o) => o.status === "PREPARANDO");
+  const prontos = orders.filter((o) => o.status === "PRONTO");
+
+  function isDelayed(createdAt: string) {
+    const diffMin = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60);
+    return diffMin > 25; // mais de 25 minutos
+  }
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", background: "#1d2532", minHeight: "100vh", color: "white" }}>
-      <header style={{ padding: "20px 24px", borderBottom: "1px solid #333", display: "flex", alignItems: "center", gap: 12 }}>
-        <ChefHat size={28} color="#d84416" />
-        <div>
-          <strong style={{ fontSize: 22 }}>Cozinha</strong>
-          <p style={{ margin: 0, color: "#999", fontSize: 13 }}>Fila de pedidos</p>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 16, fontSize: 14 }}>
-          <span>🔴 {pending.length} pendente{pending.length !== 1 ? "s" : ""}</span>
-          <span>🟠 {preparing.length} preparando</span>
-          <span>🟢 {ready.length} pronto{ready.length !== 1 ? "s" : ""}</span>
-        </div>
-      </header>
-
-      {loading ? (
-        <p style={{ textAlign: "center", padding: 40, color: "#999" }}>Carregando…</p>
-      ) : orders.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 80, color: "#666" }}>
-          <Bell size={48} style={{ marginBottom: 16 }} />
-          <h2>Nenhum pedido pendente</h2>
-          <p>Os pedidos aparecerão aqui automaticamente</p>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, padding: 24 }}>
-          {/* Pendentes */}
-          <div>
-            <h3 style={{ color: "#c32626", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#c32626", display: "inline-block" }} />
-              Pendentes ({pending.length})
-            </h3>
-            {pending.map((o) => (
-              <OrderCard key={o.id} order={o} onAdvance={() => updateStatus(o.id, "preparing")} />
-            ))}
+    <AdminShell>
+      <div className="p-4 md:p-6 space-y-4 max-w-7xl h-full flex flex-col">
+        {/* Topo da Cozinha */}
+        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-red-50 text-primary">
+              <ChefHat size={22} />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-gray-900 tracking-tight leading-none">
+                Monitor da Cozinha (KDS)
+              </h1>
+              <span className="text-xs text-gray-500">Atualização em tempo real (a cada 5s)</span>
+            </div>
           </div>
-
-          {/* Preparando */}
-          <div>
-            <h3 style={{ color: "#d84416", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#d84416", display: "inline-block" }} />
-              Preparando ({preparing.length})
-            </h3>
-            {preparing.map((o) => (
-              <OrderCard key={o.id} order={o} onAdvance={() => updateStatus(o.id, "ready")} />
-            ))}
-          </div>
-
-          {/* Prontos */}
-          <div>
-            <h3 style={{ color: "#16a34a", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
-              Prontos ({ready.length})
-            </h3>
-            {ready.map((o) => (
-              <OrderCard key={o.id} order={o} onAdvance={() => updateStatus(o.id, "delivered")} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OrderCard({ order, onAdvance }: { order: Order; onAdvance: () => void }) {
-  const items = JSON.parse(order.items);
-  const created = new Date(order.created);
-  const now = new Date();
-  const mins = Math.floor((now.getTime() - created.getTime()) / 60000);
-
-  return (
-    <div style={{ background: "#2a3545", borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `4px solid ${statusMap[order.status]?.color || "#666"}` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <strong style={{ fontSize: 16 }}>#{order.id.slice(-6).toUpperCase()}</strong>
-        {order.table_num && <span style={{ background: "#3a4555", padding: "2px 8px", borderRadius: 4, fontSize: 12 }}>Mesa {order.table_num}</span>}
-      </div>
-      <div style={{ fontSize: 13, marginBottom: 8 }}>
-        {items.map((item: any, i: number) => (
-          <div key={i} style={{ padding: "2px 0" }}>
-            <strong>{item.qty}×</strong> {item.name}
-          </div>
-        ))}
-      </div>
-      {order.note && <p style={{ fontSize: 12, color: "#fbbf24", marginBottom: 8 }}>📝 {order.note}</p>}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: "#999", display: "flex", alignItems: "center", gap: 4 }}>
-          <Clock size={12} /> {mins}min
-        </span>
-        <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => printComanda(items, order.table_num, undefined, order.note || undefined)}
-            title="Imprimir Comanda Térmica"
-            style={{ background: "#3a4555", color: "white", border: "none", padding: "8px 12px", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
+            onClick={fetchKitchenOrders}
+            className="p-2 text-gray-500 hover:text-primary rounded-xl hover:bg-gray-100 transition-all"
+            title="Atualizar agora"
           >
-            🖨️
-          </button>
-          <button onClick={onAdvance} style={{ background: statusMap[order.status]?.color || "#666", color: "white", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
-            {order.status === "pending" && "▶ Iniciar"}
-            {order.status === "preparing" && "✓ Pronto"}
-            {order.status === "ready" && "✓ Entregue"}
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
+
+        {/* Quadro Kanban em 3 Colunas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 items-start">
+          {/* Coluna 1: Novos */}
+          <div className="bg-gray-100/80 p-3.5 rounded-2xl border border-gray-200/80 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="font-extrabold text-xs uppercase tracking-wider text-gray-600">
+                🟡 Novos ({novos.length})
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {novos.map((order) => (
+                <div
+                  key={order.id}
+                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${
+                    isDelayed(order.createdAt)
+                      ? "border-red-500 ring-2 ring-red-100"
+                      : "border-gray-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-base text-gray-900">{order.code}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                      {order.type} {order.tableNumber ? `#${order.tableNumber}` : ""}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <Clock size={14} />
+                    <span>Recebido às {formatTime(order.createdAt)}</span>
+                  </div>
+
+                  {/* Itens */}
+                  <div className="space-y-1.5 border-t border-b border-gray-100 py-2">
+                    {order.items?.map((it: any) => (
+                      <div key={it.id} className="text-sm">
+                        <div className="font-bold text-gray-800">
+                          {it.quantity}x {it.productName}
+                        </div>
+                        {it.notes && (
+                          <div className="text-xs text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded mt-0.5">
+                            Obs: {it.notes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => updateStatus(order.id, "PREPARANDO")}
+                    className="w-full py-2.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                  >
+                    <span>Iniciar Preparo</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              ))}
+              {novos.length === 0 && (
+                <div className="p-8 text-center text-xs text-gray-400 font-medium">
+                  Nenhum pedido aguardando
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Coluna 2: Em Preparo */}
+          <div className="bg-amber-50/50 p-3.5 rounded-2xl border border-amber-200/80 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="font-extrabold text-xs uppercase tracking-wider text-amber-800">
+                🔥 Em Preparo ({preparando.length})
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {preparando.map((order) => (
+                <div
+                  key={order.id}
+                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${
+                    isDelayed(order.createdAt)
+                      ? "border-red-500 ring-2 ring-red-100"
+                      : "border-amber-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-base text-gray-900">{order.code}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                      {order.type} {order.tableNumber ? `#${order.tableNumber}` : ""}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <Clock size={14} />
+                    <span>Iniciado às {formatTime(order.updatedAt)}</span>
+                  </div>
+
+                  {/* Itens */}
+                  <div className="space-y-1.5 border-t border-b border-gray-100 py-2">
+                    {order.items?.map((it: any) => (
+                      <div key={it.id} className="text-sm">
+                        <div className="font-bold text-gray-800">
+                          {it.quantity}x {it.productName}
+                        </div>
+                        {it.notes && (
+                          <div className="text-xs text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded mt-0.5">
+                            Obs: {it.notes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => updateStatus(order.id, "PRONTO")}
+                    className="w-full py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                  >
+                    <Check size={14} />
+                    <span>Marcar como Pronto</span>
+                  </button>
+                </div>
+              ))}
+              {preparando.length === 0 && (
+                <div className="p-8 text-center text-xs text-gray-400 font-medium">
+                  Cozinha liberada
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Coluna 3: Prontos */}
+          <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-200/80 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="font-extrabold text-xs uppercase tracking-wider text-emerald-800">
+                ✅ Prontos / Expedição ({prontos.length})
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {prontos.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-emerald-200 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-base text-gray-900">{order.code}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                      {order.type} {order.tableNumber ? `#${order.tableNumber}` : ""}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-gray-500">
+                    Pronto para entrega ou retirada no balcão.
+                  </div>
+
+                  <button
+                    onClick={() => updateStatus(order.id, "ENTREGUE")}
+                    className="w-full py-2 rounded-xl font-bold text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 active:scale-95 transition-all"
+                  >
+                    Finalizar e Arquivar
+                  </button>
+                </div>
+              ))}
+              {prontos.length === 0 && (
+                <div className="p-8 text-center text-xs text-gray-400 font-medium">
+                  Nenhum pedido aguardando retirada
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </AdminShell>
   );
 }

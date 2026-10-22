@@ -1,864 +1,168 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-
-import { ToastProvider, useToast } from "@/components/ui/toast";
-import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
-import { Skeleton, SkeletonCard, SkeletonGrid } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
-import { printComanda, printRecibo } from "@/lib/print";
-import Dashboard from "@/components/dashboard";
-import Onboarding from "@/components/onboarding";
-import { PlanBadge, canAccess } from "@/components/plan-gate";
+import { useEffect, useState } from "react";
+import AdminShell from "@/components/layout/AdminShell";
+import { formatCurrency } from "@/lib/utils";
 import {
-  ShoppingBag, Utensils, Receipt, ChartNoAxesCombined,
-  Plus, Camera, Download, FileText, Trash2, Edit, Search,
-  Lock, Users, Building2, BarChart3, Send, Package, Bell,
-  Undo2, Printer,
+  DollarSign,
+  ShoppingBag,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  RefreshCw,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 
-type Product = { id: string; name: string; description: string; price: number; cost: number; active: number; photo: string | null; category: string; stock: number };
-type Sale = { id: string; created: string; lines: string; payment: string; total: number; received: number; branch: string; employee: string; note: string | null };
-type Expense = { id: string; day: string; merchant: string; amount: number; receipt: string | null; created: string; branch: string };
-type User = { id: string; username: string; name: string; role: string; branch: string; tenantId: string; plan: string; email: string };
-type Branch = { id: string; name: string };
-type Data = { products: Product[]; sales: Sale[]; expenses: Expense[]; totals: { revenue: number; costs: number; count: number } };
-
-const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v / 100);
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-const cents = (s: string) => { const v = s.trim().replace(",", "."); return /^\d+(\.\d{1,2})?$/.test(v) ? Math.round(Number(v) * 100) : NaN; };
-
-function playSound(type: "success" | "error") {
-  try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    if (type === "success") {
-      osc.frequency.value = 880;
-      gain.gain.value = 0.3;
-      osc.start();
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.stop(ctx.currentTime + 0.3);
-    } else {
-      osc.frequency.value = 300;
-      gain.gain.value = 0.3;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc.stop(ctx.currentTime + 0.5);
-    }
-  } catch {}
-}
-
-
-
-export default function Home() {
-  return (
-    <ToastProvider>
-    <ConfirmProvider>
-      <HomeInner />
-    </ConfirmProvider>
-    </ToastProvider>
-  );
-}
-
-const DEFAULT_USER: User = {
-  id: "9c732d93-cbce-4912-9a7c-0dd889afd8dd",
-  username: "moraesguga.95@gmail.com",
-  tenantId: "principal",
-  name: "washington",
-  role: "admin",
-  email: "moraesguga.95@gmail.com",
-  branch: "principal",
-  plan: "pro",
-};
-
-function HomeInner() {
-  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
-  const [tab, setTab] = useState("caixa");
-  const [data, setData] = useState<Data>({ products: [], sales: [], expenses: [], totals: { revenue: 0, costs: 0, count: 0 } });
+export default function DashboardPage() {
+  const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Todos");
-  const [success, setSuccess] = useState("");
-  const [from, setFrom] = useState(today().slice(0, 7) + "-01");
-  const [to, setTo] = useState(today());
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [payment, setPayment] = useState("Pix");
-  const [received, setReceived] = useState("");
-  const [product, setProduct] = useState({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" });
-  const [merchant, setMerchant] = useState("");
-  const [amount, setAmount] = useState("");
-  const [expenseDay, setExpenseDay] = useState(today());
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState("");
-  const [saleNote, setSaleNote] = useState("");
-  const [tip, setTip] = useState("");
-  const [split, setSplit] = useState(1);
-  const [couponCode, setCouponCode] = useState("");
-  const [discount, setDiscount] = useState(0);
-  const [darkMode, setDarkMode] = useState(false);
-  const [dailyGoal, setDailyGoal] = useState(50000);
-  const [editSaleId, setEditSaleId] = useState("");
-  const [showNewUser, setShowNewUser] = useState(false);
-  const [newUser, setNewUser] = useState({ username: "", password: "", name: "", role: "caixa" });
-  const [showNewBranch, setShowNewBranch] = useState(false);
-  const [newBranchName, setNewBranchName] = useState("");
-  const [undoSale, setUndoSale] = useState<any>(null);
-  const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  const toastHook = useToast();
-  const confirmHook = useConfirm();
-
-  const photoInput = useRef<HTMLInputElement>(null);
-  const productPhotoInput = useRef<HTMLInputElement>(null);
-  const saleId = useRef("");
-  const expenseId = useRef("");
-  const productId = useRef("");
-  const lock = useRef(false);
-  const loadSeq = useRef(0);
-
-  const refresh = useCallback(async () => {
-    const n = ++loadSeq.current;
+  async function loadData() {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from, to, search, page: String(page) });
-      if (selectedBranch) params.set("branch", selectedBranch);
-      const r = await fetch("/api/records?action=records&" + params);
-      const d: any = await r.json();
-      if (!r.ok) throw Error(d.error);
-      if (n === loadSeq.current) { setData(d); setError(""); setLoadFailed(false); }
-    } catch (e) { if (n === loadSeq.current) { setError((e as Error).message); setLoadFailed(true); } }
-    finally { if (n === loadSeq.current) setLoading(false); }
-  }, [from, to, search, page, selectedBranch]);
-
-  useEffect(() => { if (currentUser) void refresh(); }, [refresh, currentUser]);
-  useEffect(() => { if (!photo) { setPhotoUrl(""); return; } const u = URL.createObjectURL(photo); setPhotoUrl(u); return () => URL.revokeObjectURL(u); }, [photo]);
-
-  useEffect(() => {
-    fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "me" }) })
-      .then(async r => {
-        const d = await r.json();
-        if (!r.ok) throw Error(d.error);
-        setCurrentUser(d.user);
-        localStorage.setItem("cl_user", JSON.stringify(d.user));
-      })
-      .catch(() => {
-        const fallbackUser: User = { id: "9c732d93-cbce-4912-9a7c-0dd889afd8dd", username: "moraesguga.95@gmail.com", tenantId: "principal", name: "washington", role: "admin", email: "moraesguga.95@gmail.com", branch: "principal", plan: "pro" };
-        setCurrentUser(fallbackUser);
-        localStorage.setItem("cl_user", JSON.stringify(fallbackUser));
-      })
-      .finally(() => setAuthLoading(false));
-    const dark = localStorage.getItem("cl_dark");
-    if (dark === "true") { setDarkMode(true); document.documentElement.classList.add("dark"); }
-    fetch("/api/records?action=branches").then(r => r.json()).then((d: any) => setBranches(d.branches || [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (e.key === "F2") { e.preventDefault(); setTab("caixa"); }
-      if (e.key === "F3") { e.preventDefault(); setTab("lanches"); }
-      if (e.key === "F4") { e.preventDefault(); setTab("gastos"); }
-      if (e.key === "F5") { e.preventDefault(); setTab("gestao"); }
-      if (e.key === "F6") { e.preventDefault(); setTab("dashboard"); }
-      if (e.key === "Escape") { e.preventDefault(); setSaleNote(""); setTip(""); setDiscount(0); setCouponCode(""); setSplit(1); }
+      const res = await fetch("/api/dashboard");
+      const d = await res.json();
+      setMetrics(d);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
-
-  function toggleDark() {
-    setDarkMode((d) => { const next = !d; localStorage.setItem("cl_dark", String(next)); document.documentElement.classList.toggle("dark", next); return next; });
-  }
-
-  async function save(payload: object | FormData) {
-    const isForm = payload instanceof FormData;
-    const r = await fetch("/api/records", { method: "POST", headers: isForm ? undefined : { "Content-Type": "application/json" }, body: isForm ? payload : JSON.stringify(payload) });
-    const d: any = await r.json();
-    if (!r.ok) throw Error(d.error);
-    return d;
-  }
-
-  async function run(fn: () => Promise<void>) {
-    if (lock.current) return;
-    lock.current = true; setBusy(true); setError(""); setSuccess("");
-    try { await fn(); await refresh(); toastHook.toast("success", "Ação realizada com sucesso!"); }
-    catch (e) { setError((e as Error).message); toastHook.toast("error", (e as Error).message); }
-    finally { lock.current = false; setBusy(false); }
-  }
-
-  const lines = Object.entries(cart).map(([id, qty]) => ({ p: data.products.find((p) => p.id === id), qty })).filter((x) => x.p) as { p: Product; qty: number }[];
-  const total = lines.reduce((s, x) => s + x.p.price * x.qty, 0);
-  const payable = total - discount + (tip && Number.isFinite(cents(tip)) ? cents(tip) : 0);
-
-  function quantity(id: string, delta: number) {
-    if (busy) return;
-    saleId.current = "";
-    setDiscount(0); setCouponCode("");
-    setCart((c) => { const n = { ...c }; n[id] = Math.max(0, Math.min(999, (n[id] || 0) + delta)); if (!n[id]) delete n[id]; return n; });
-  }
-
-  async function checkout() {
-    await run(async () => {
-      if (loading || loadFailed) throw Error("Aguarde o carregamento do cardápio.");
-      if (!lines.length || lines.some((x) => !x.p.active)) throw Error("Confira os lanches do pedido.");
-      const tipValue = tip ? cents(tip) : 0;
-      if (couponCode && !discount) throw Error("Aplique o cupom ou limpe o código antes de finalizar.");
-      const finalTotal = total - discount + tipValue;
-      if (!Number.isSafeInteger(tipValue) || tipValue < 0) throw Error("Gorjeta inválida.");
-      if (finalTotal < 0) throw Error("Desconto maior que o total.");
-      if (payment === "Dinheiro" && (!Number.isFinite(cents(received)) || cents(received) < finalTotal))
-        throw Error("Informe o valor recebido.");
-      saleId.current ||= crypto.randomUUID();
-      await save({ action: "sale", id: saleId.current, items: lines.map((x) => ({ id: x.p.id, qty: x.qty })), payment, received: payment === "Dinheiro" ? cents(received) : finalTotal, expectedTotal: total, branch: selectedBranch || currentUser?.branch, employee: currentUser?.name || "", note: saleNote || null, tip: tipValue, discount, coupon: couponCode || null, split });
-      const completedSaleId = saleId.current;
-      const completedLines = JSON.stringify(lines.map((x) => ({ id: x.p.id, name: x.p.name, price: x.p.price, qty: x.qty })));
-      const completedTotal = finalTotal;
-      const completedPayment = payment;
-      const completedReceived = payment === "Dinheiro" ? cents(received) : finalTotal;
-      const completedTip = tipValue;
-      const completedDiscount = discount;
-      const completedNote = saleNote || null;
-
-      setCart({}); setReceived(""); setSaleNote(""); setTip(""); setSplit(1); setCouponCode(""); setDiscount(0); saleId.current = "";
-      setSuccess("Venda registrada com sucesso!");
-
-      // Imprime o cupom automaticamente
-      try {
-        printRecibo({
-          id: completedSaleId,
-          lines: completedLines,
-          total: completedTotal,
-          payment: completedPayment,
-          received: completedReceived,
-          created: new Date().toISOString(),
-          employee: currentUser?.name,
-          branch: selectedBranch || currentUser?.branch,
-          note: completedNote,
-          tip: completedTip,
-          discount: completedDiscount,
-        });
-      } catch {}
-    });
-  }
-
-  async function saveProduct(e: React.FormEvent) {
-    e.preventDefault();
-    await run(async () => {
-      const price = cents(product.price);
-      if (!Number.isFinite(price) || price <= 0) throw Error("Preço inválido.");
-      productId.current ||= product.id || crypto.randomUUID();
-      await save({ action: "product", id: productId.current, name: product.name, description: product.description, price, category: product.category, stock: Number(product.stock), cost: cents(product.cost) || 0 });
-      if (productPhotoInput.current?.files?.[0]) {
-        const f = new FormData();
-        f.set("action", "upload-product-photo");
-        f.set("id", productId.current);
-        f.set("photo", productPhotoInput.current.files[0]);
-        await save(f);
-      }
-      setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" });
-      productId.current = "";
-      if (productPhotoInput.current) productPhotoInput.current.value = "";
-      setSuccess("Lanche salvo!");
-    });
-  }
-
-  async function saveExpense(e: React.FormEvent) {
-    e.preventDefault();
-    await run(async () => {
-      const value = cents(amount);
-      if (!Number.isFinite(value) || value <= 0) throw Error("Valor inválido.");
-      expenseId.current ||= crypto.randomUUID();
-      const f = new FormData();
-      f.set("action", "upload-receipt");
-      f.set("id", expenseId.current);
-      f.set("merchant", merchant);
-      f.set("amount", String(value));
-      f.set("day", expenseDay);
-      f.set("branch", selectedBranch || "principal");
-      if (photo) f.set("receipt", photo);
-      await save(f);
-      setMerchant(""); setAmount(""); setPhoto(null);
-      if (photoInput.current) photoInput.current.value = "";
-      expenseId.current = "";
-      setSuccess("Gasto registrado!");
-    });
-  }
-
-  async function deleteSale(id: string) {
-    const ok = await confirmHook.confirm({ title: "Cancelar venda?", message: "O estoque será devolvido e o cancelamento ficará no histórico.", confirmText: "Cancelar venda", variant: "danger" });
-    if (!ok) return;
-    await run(async () => {
-      await save({ action: "delete-sale", id });
-      setUndoSale(data.sales.find(s => s.id === id));
-      setSuccess("Venda cancelada e estoque devolvido.");
-    });
-  }
-  async function undoDelete() {
-    if (!undoSale) return;
-    await run(async () => { await save({ action: "restore-sale", id: undoSale.id }); setUndoSale(null); setSuccess("Venda restaurada."); });
-  }
-
-  async function toggleProduct(p: Product) {
-    await run(async () => {
-      await save({ action: "toggle", id: p.id, active: !p.active });
-      setSuccess(p.active ? "Lanche pausado." : "Lanche ativado.");
-    });
-  }
-
-  async function deleteProduct(id: string) {
-    if (!confirm("Excluir este lanche permanentemente?")) return;
-    await run(async () => { await save({ action: "delete-product", id }); setSuccess("Lanche excluído."); });
-  }
-
-  function selectPhoto(f: File | undefined) {
-    setError("");
-    if (!f) { setPhoto(null); return; }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type) || f.size > 8 * 1024 * 1024) { setError("Use JPG, PNG ou WebP até 8 MB."); return; }
-    setPhoto(f);
-  }
-
-  if (authLoading || !currentUser) return <div className="session-loading" role="status">Carregando Central Lanches…</div>;
-
-  const isOnboarded = typeof window !== "undefined" ? localStorage.getItem("cl_onboarded") === "1" : true;
-  if (!isOnboarded && !loading && !loadFailed && currentUser.role === "admin" && data.products.length === 0) return <Onboarding onComplete={() => window.location.reload()} />;
-
-  const allCategories = useMemo(() => {
-    const list = Array.from(new Set(data.products.filter(p => p.active).map(p => p.category)));
-    const order = ["Lanches", "Porções", "Barcas", "Adicionais", "Bebidas", "Geral"];
-    return ["Todos", ...list.sort((a, b) => {
-      const ia = order.indexOf(a);
-      const ib = order.indexOf(b);
-      if (ia !== -1 && ib !== -1) return ia - ib;
-      if (ia !== -1) return -1;
-      if (ib !== -1) return 1;
-      return a.localeCompare(b);
-    })];
-  }, [data.products]);
-
-  const visibleProducts = data.products.filter(p => {
-    if (!p.active) return false;
-    const matchesSearch = `${p.name} ${p.description}`.toLocaleLowerCase("pt-BR").includes(productSearch.toLocaleLowerCase("pt-BR"));
-    const matchesCat = selectedCategory === "Todos" || p.category === selectedCategory;
-    return matchesSearch && matchesCat;
-  });
-
-  const categories = useMemo(() => {
-    const list = Array.from(new Set(visibleProducts.map((p) => p.category)));
-    const order = ["Lanches", "Porções", "Barcas", "Adicionais", "Bebidas", "Geral"];
-    return list.sort((a, b) => {
-      const ia = order.indexOf(a);
-      const ib = order.indexOf(b);
-      if (ia !== -1 && ib !== -1) return ia - ib;
-      if (ia !== -1) return -1;
-      if (ib !== -1) return 1;
-      return a.localeCompare(b);
-    });
-  }, [visibleProducts]);
 
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand" style={{ width: 36, height: 36, fontSize: 14, marginBottom: 0 }}>CL</div>
-          <div><strong style={{ fontSize: 15 }}>Central Lanches</strong><br/><span style={{ fontSize: 10, opacity: .5, letterSpacing: 1, textTransform: "uppercase" }}>Gestão</span></div>
-        </div>
-        <nav className="sidebar-nav">
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">Principal</div>
-            <button className={`sidebar-item ${tab === "caixa" ? "active" : ""}`} onClick={() => setTab("caixa")}><ShoppingBag size={16} /> Caixa</button>
-            <button className={`sidebar-item ${tab === "lanches" ? "active" : ""}`} onClick={() => setTab("lanches")}><Utensils size={16} /> Lanches</button>
-            <button className={`sidebar-item ${tab === "gastos" ? "active" : ""}`} onClick={() => setTab("gastos")}><Receipt size={16} /> Gastos</button>
-            <button className={`sidebar-item ${tab === "gestao" ? "active" : ""}`} onClick={() => setTab("gestao")}><ChartNoAxesCombined size={16} /> Gestão</button>
-            {canAccess(currentUser.plan, "dashboard") && <button className={`sidebar-item ${tab === "dashboard" ? "active" : ""}`} onClick={() => setTab("dashboard")}><BarChart3 size={16} /> Dashboard</button>}
-          </div>
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">Operação</div>
-            <a href={"/pedido?branch=" + encodeURIComponent(selectedBranch || currentUser.branch)} target="_blank" rel="noopener noreferrer" className="sidebar-item">🍔 Cardápio</a>
-            {canAccess(currentUser.plan, "cozinha") && <a href="/cozinha" target="_blank" className="sidebar-item">👨‍🍳 Cozinha</a>}
-            {canAccess(currentUser.plan, "cozinha") && <a href="/cozinha-avancada" target="_blank" className="sidebar-item">🔥 Cozinha+</a>}
-            {canAccess(currentUser.plan, "mesas") && <a href="/mesas" className="sidebar-item">🍽️ Mesas</a>}
-            {canAccess(currentUser.plan, "delivery") && <a href="/delivery" className="sidebar-item">🛵 Delivery</a>}
-          </div>
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">Gestão</div>
-            {canAccess(currentUser.plan, "fidelidade") && <a href="/fidelidade" className="sidebar-item">⭐ Fidelidade</a>}
-            {canAccess(currentUser.plan, "ponto") && <a href="/ponto" target="_blank" className="sidebar-item">⏰ Ponto</a>}
-            {canAccess(currentUser.plan, "nfe") && <a href="/nfe" className="sidebar-item">📄 NF-e</a>}
-          </div>
-          {currentUser.role === "admin" && (
-            <div className="sidebar-section">
-              <div className="sidebar-section-title">Sistema</div>
-              <button className={`sidebar-item ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}><Users size={16} /> Configurações</button>
-              <a href="/billing" className="sidebar-item">💳 Plano</a>
-              <a href="/account" className="sidebar-item">👤 Minha Conta</a>
-            </div>
-          )}
-        </nav>
-        <div className="sidebar-footer">
-          <div style={{ marginBottom: 8 }}>
-            <PlanBadge plan={currentUser.plan || "basico"} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{currentUser.name}</div>
-              <div style={{ fontSize: 10, opacity: .5 }}>{currentUser.role}</div>
-            </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              <button aria-label="Alternar tema" className="btn btn-ghost btn-sm btn-icon" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <div className="main-content">
-        <div className="top-bar">
+    <AdminShell>
+      <div className="p-4 md:p-8 space-y-6 max-w-7xl">
+        {/* Cabeçalho */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{tab === "caixa" ? "Caixa" : tab === "lanches" ? "Lanches" : tab === "gastos" ? "Gastos" : tab === "gestao" ? "Gestão" : tab === "dashboard" ? "Dashboard" : "Configurações"}</div>
-            <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}</div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Painel Geral</h1>
+            <p className="text-sm text-gray-500">Métricas em tempo real do caixa, pedidos e vendas</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {branches.length > 1 && (
-              <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--input)", fontSize: 12 }}>
-                <option value="">Todas filiais</option>
-                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm self-start sm:self-auto"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin text-primary" : ""} />
+            Atualizar
+          </button>
+        </div>
+
+        {/* Alertas */}
+        {metrics?.alerts && (metrics.alerts.lowStockCount > 0 || metrics.alerts.delayedOrdersCount > 0) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {metrics.alerts.delayedOrdersCount > 0 && (
+              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-sm font-medium">
+                <Clock className="text-primary flex-shrink-0" size={20} />
+                <span><strong>Atenção:</strong> {metrics.alerts.delayedOrdersCount} pedido(s) em preparo há mais de 30 minutos!</span>
+              </div>
+            )}
+            {metrics.alerts.lowStockCount > 0 && (
+              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm font-medium">
+                <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+                <span><strong>Estoque baixo:</strong> {metrics.alerts.lowStockCount} insumo(s) abaixo do nível mínimo.</span>
+              </div>
             )}
           </div>
+        )}
+
+        {/* Cards de Métricas Principais */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between text-gray-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider">Vendas Hoje</span>
+              <div className="p-2 bg-red-50 text-primary rounded-xl">
+                <DollarSign size={18} />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-gray-900">
+              {formatCurrency(metrics?.dayRevenue || 0)}
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+              <ShoppingBag size={14} className="text-gray-400" />
+              <span>{metrics?.dayOrdersCount || 0} pedidos concluídos hoje</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between text-gray-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider">Ticket Médio</span>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                <TrendingUp size={18} />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-gray-900">
+              {formatCurrency(metrics?.dayAverageTicket || 0)}
+            </div>
+            <div className="mt-1 text-xs text-gray-500">Valor médio gasto por cliente</div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between text-gray-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider">Vendas no Mês</span>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                <ArrowUpRight size={18} />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-gray-900">
+              {formatCurrency(metrics?.monthRevenue || 0)}
+            </div>
+            <div className="mt-1 text-xs text-gray-500">Acumulado do mês atual</div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm">
+            <div className="flex items-center justify-between text-gray-500 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider">Lucro Estimado</span>
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                <ArrowDownRight size={18} />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-gray-900">
+              {formatCurrency(metrics?.estimatedProfit || 0)}
+            </div>
+            <div className="mt-1 text-xs text-gray-500">
+              Gastos mês: {formatCurrency(metrics?.monthExpensesTotal || 0)}
+            </div>
+          </div>
         </div>
 
-        <div className="page-content">
-          {error && <div className="error" role="alert">{error} <button className="small" onClick={() => void refresh()} disabled={busy}>Recarregar</button></div>}
-          {success && <div className="success" role="status">{success}</div>}
-          {undoSale && (
-            <div style={{ background: "var(--warning-light)", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 13 }}>
-              <span style={{ flex: 1 }}>Venda cancelada</span>
-              <button onClick={undoDelete} className="small" style={{ background: "var(--warning)", color: "white", border: "none", fontWeight: 600 }}>Desfazer</button>
-            </div>
-          )}
-
-          {/* === CAIXA === */}
-          {tab === "caixa" && (
-            <div className="checkout-layout">
-              <section className="panel">
-                <h2>Seu cardápio</h2>
-                <label htmlFor="product-search" className="sr-only">Buscar lanche</label>
-                <input id="product-search" type="search" placeholder="Buscar lanche…" value={productSearch} onChange={e => setProductSearch(e.target.value)} className="product-search" />
-                {/* BARRA DE CATEGORIAS / SEÇÕES NO CAIXA */}
-                <div style={{ display: "flex", gap: 6, margin: "12px 0 16px", overflowX: "auto", paddingBottom: 4 }}>
-                  {allCategories.map((cat: string) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat)}
-                      style={{
-                        padding: "6px 14px",
-                        borderRadius: 20,
-                        border: selectedCategory === cat ? "2px solid var(--primary)" : "1px solid var(--border)",
-                        background: selectedCategory === cat ? "var(--primary-light)" : "var(--card)",
-                        color: selectedCategory === cat ? "var(--primary)" : "var(--foreground)",
-                        fontWeight: selectedCategory === cat ? 700 : 500,
-                        fontSize: 12,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.15s"
-                      }}
-                    >
-                      {cat === "Todos" && "📋 Todos"}
-                      {cat === "Lanches" && "🍔 Lanches"}
-                      {cat === "Porções" && "🍟 Porções"}
-                      {cat === "Barcas" && "🛶 Barcas"}
-                      {cat === "Adicionais" && "🥓 Adicionais"}
-                      {cat === "Bebidas" && "🥤 Bebidas"}
-                      {!["Todos", "Lanches", "Porções", "Barcas", "Adicionais", "Bebidas"].includes(cat) && `🍽️ ${cat}`}
-                    </button>
-                  ))}
-                </div>
-
-                {loading ? <div className="empty" role="status">Carregando cardápio…</div> : loadFailed ? <div className="empty">O cardápio está indisponível. Use Recarregar para tentar novamente.</div> : !visibleProducts.length ? (
-                  <div className="empty"><Utensils size={40} /><h3>{productSearch ? "Nenhum lanche encontrado" : "Nenhum item nesta seção"}</h3><p>{productSearch ? "Tente outro nome na busca." : "Selecione outra categoria ou cadastre seus itens."}</p>{!productSearch && currentUser.role === "admin" && <button className="primary" onClick={() => setTab("lanches")}>Cadastrar primeiro lanche</button>}</div>
-                ) : (
-                  <div className="category-list" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                    {categories.map((cat: string) => {
-                      const itemsInCat = visibleProducts.filter((p) => p.category === cat);
-                      if (!itemsInCat.length) return null;
-
-                      const icon = cat === "Lanches" ? "🍔" : cat === "Porções" ? "🍟" : cat === "Barcas" ? "🛶" : cat === "Adicionais" ? "🥓" : cat === "Bebidas" ? "🥤" : "🍽️";
-
-                      return (
-                        <div key={cat} style={{ background: "var(--card)", borderRadius: 12, border: "1px solid var(--border)", padding: "16px" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 10, marginBottom: 14 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 18 }}>{icon}</span>
-                              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "var(--foreground)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{cat}</h3>
-                            </div>
-                            <span style={{ fontSize: 11, background: "var(--secondary)", color: "var(--muted-foreground)", fontWeight: 700, padding: "2px 8px", borderRadius: 12 }}>
-                              {itemsInCat.length} {itemsInCat.length === 1 ? "item" : "itens"}
-                            </span>
-                          </div>
-
-                          <div className="grid">
-                            {itemsInCat.map((p) => (
-                              <button className="product" key={p.id} disabled={busy || loading || (p.stock === 0)} onClick={() => quantity(p.id, 1)}>
-                                {p.photo && <img src={p.photo} alt={p.name} style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />}
-                                <strong>{p.name}</strong>
-                                <span className="hint">{p.description || "Preparado na hora"}</span>
-                                <b>{brl(p.price)}</b>
-                                {p.stock >= 0 && <span className="hint" style={{ color: p.stock === 0 ? "var(--danger)" : p.stock < 5 ? "var(--warning)" : undefined, fontWeight: p.stock < 5 ? 600 : undefined }}>{p.stock === 0 ? "ESGOTADO" : `${p.stock} em estoque`}</span>}
-                                <span className="hint">{p.stock === 0 ? "" : "+ Adicionar"}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              <aside className="panel order-panel">
-                <h2>Pedido atual</h2>
-                {!lines.length && <p className="hint">Adicione os lanches do cliente.</p>}
-                {lines.map(({ p, qty }) => (
-                  <div className="row" key={p.id}>
-                    <div><strong>{p.name}</strong><small>{brl(p.price * qty)}</small></div>
-                    <div className="controls">
-                      <button className="small" disabled={busy} onClick={() => quantity(p.id, -1)}>−</button>
-                      <span>{qty}</span>
-                      <button className="small" disabled={busy} onClick={() => quantity(p.id, 1)}>+</button>
-                    </div>
-                  </div>
-                ))}
-                <div className="total"><span>Total a pagar</span><strong>{brl(payable)}</strong></div>
-
-                {data.totals.revenue > 0 && (
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)", marginBottom: 4 }}>
-                      <span>Receita do período / referência</span>
-                      <span>{brl(data.totals.revenue)} / {brl(dailyGoal)}</span>
-                    </div>
-                    <div style={{ background: "var(--border)", borderRadius: 4, height: 8 }}>
-                      <div style={{ background: data.totals.revenue >= dailyGoal ? "var(--success)" : "var(--primary)", height: 8, borderRadius: 4, width: `${Math.min(100, (data.totals.revenue / dailyGoal) * 100)}%`, transition: "width 0.3s" }} />
-                    </div>
-                  </div>
-                )}
-
-                <label>Cupom de desconto</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setDiscount(0); saleId.current = ""; }} placeholder="CÓDIGO" style={{ flex: 1, fontSize: 13, textTransform: "uppercase" }} />
-                  <button className="small" disabled={busy} onClick={async () => {
-                    if (!couponCode) return;
-                    try {
-                      const r = await fetch("/api/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "apply-coupon", code: couponCode, items: lines.map(x => ({ id: x.p.id, qty: x.qty })) }) });
-                      const d = await r.json();
-                      if (!r.ok) throw Error(d.error);
-                      setDiscount(d.discount); saleId.current = "";
-                      setSuccess(`Cupom aplicado! -${brl(d.discount)}`);
-                    } catch (e) { setError((e as Error).message); }
-                  }}>Aplicar</button>
-                </div>
-                {discount > 0 && <p className="hint" style={{ color: "var(--success)" }}>Desconto: -{brl(discount)} <button className="small" onClick={() => { setDiscount(0); setCouponCode(""); }} style={{ padding: "2px 6px", fontSize: 11 }}>remover</button></p>}
-
-                <label>Observação</label>
-                <input value={saleNote} onChange={(e) => setSaleNote(e.target.value)} placeholder="Ex.: Sem cebola" />
-
-                <p style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: ".5px" }}>Pagamento</p>
-                <div style={{ display: "flex", gap: 8, margin: "8px 0" }}>
-                  {["Pix", "Dinheiro", "Cartão"].map((v) => (
-                    <button key={v} type="button" disabled={busy} onClick={() => { setPayment(v); saleId.current = ""; }}
-                      style={{ flex: 1, padding: "12px 8px", borderRadius: 8, border: payment === v ? "2px solid var(--primary)" : "1px solid var(--input)", background: payment === v ? "var(--primary-light)" : "var(--card)", color: payment === v ? "var(--primary)" : "var(--foreground)", fontWeight: payment === v ? 700 : 400, cursor: busy ? "not-allowed" : "pointer", fontSize: 13, transition: "all .15s" }}>
-                      {v === "Pix" && "⚡ "}{v === "Dinheiro" && "💵 "}{v === "Cartão" && "💳 "}{v}
-                    </button>
-                  ))}
-                </div>
-
-                {payment === "Pix" && payable > 0 && (
-                  <div style={{ background: "var(--primary-light)", border: "1px solid var(--primary)", borderRadius: 12, padding: 14, textAlign: "center", margin: "10px 0" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", marginBottom: 8 }}>
-                      ⚡ QR Code PIX · {brl(payable)}
-                    </div>
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`00020126580014br.gov.bcb.pix0136centrallanches@pix.com.br520400005303986540${(payable/100).toFixed(2)}5802BR5915Central Lanches6009Sao Paulo62070503***6304`)}`}
-                      alt="PIX QR Code"
-                      style={{ width: 140, height: 140, margin: "0 auto", borderRadius: 8, background: "white", padding: 6, boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
-                    />
-                    <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 8 }}>
-                      Mostre para o cliente ler com o aplicativo do banco
-                    </p>
-                  </div>
-                )}
-
-                {payment === "Dinheiro" && (<><label>Valor recebido (R$)</label><input inputMode="decimal" value={received} disabled={busy} onChange={(e) => setReceived(e.target.value)} placeholder="0,00" /></>)}
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
-                  <div>
-                    <label>Gorjeta (R$)</label>
-                    <input inputMode="decimal" value={tip} disabled={busy} onChange={(e) => setTip(e.target.value)} placeholder="0,00" />
-                  </div>
-                  <div>
-                    <label>Dividir entre</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button className="small" disabled={busy || split <= 1} onClick={() => setSplit((s) => s - 1)}>−</button>
-                      <span style={{ fontWeight: 700, fontSize: 18 }}>{split}</span>
-                      <button className="small" disabled={busy || split >= 20} onClick={() => setSplit((s) => s + 1)}>+</button>
-                      <span className="hint">= {brl(Math.ceil((total - discount + (tip ? cents(tip) : 0)) / split))}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button className="primary" style={{ width: "100%", marginTop: 16, padding: "14px 24px", fontSize: 15 }} disabled={busy || loading || loadFailed || !lines.length} onClick={() => void checkout()}>
-                  {busy ? "Finalizando…" : `Finalizar · ${brl(payable)}`}
-                </button>
-              </aside>
-            </div>
-          )}
-
-          {/* === LANCHES === */}
-          {tab === "lanches" && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Cardápio</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Seus lanches, do seu jeito.</p></div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <a href="/api/export?type=products" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
-                  <span className="badge">{data.products.filter((p) => p.active).length} disponíveis</span>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
-                <section className="panel">
-                  <h2>Lanches cadastrados</h2>
-                  {!data.products.length && <p className="hint">Nenhum lanche cadastrado.</p>}
-                  {data.products.map((p) => (
-                    <div className="row" key={p.id}>
-                      <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
-                        {p.photo && <img src={p.photo} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover" }} />}
-                        <div>
-                          <strong>{p.name}</strong> <small style={{ background: "var(--muted)", padding: "2px 6px", borderRadius: 4, fontSize: 11 }}>{p.category}</small>
-                          <small>{p.description}</small>
-                          <b>{brl(p.price)}</b>
-                          <small>{p.active ? (p.stock >= 0 ? `Estoque: ${p.stock}` : "Disponível") : "Pausado"}</small>
-                        </div>
-                      </div>
-                      <div className="controls">
-                        <button className="small" disabled={busy} onClick={() => { setProduct({ ...p, price: (p.price / 100).toFixed(2).replace(".", ","), stock: String(p.stock), cost: p.cost ? (p.cost / 100).toFixed(2).replace(".", ",") : "" }); productId.current = p.id; }}><Edit size={14} /></button>
-                        <button className="small" disabled={busy} onClick={() => void toggleProduct(p)}>{p.active ? "Pausar" : "Ativar"}</button>
-                        <button className="small" disabled={busy} onClick={() => void deleteProduct(p.id)} style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
-                      </div>
-                    </div>
-                  ))}
-                </section>
-
-                <form className="panel" onSubmit={saveProduct}>
-                  <h2>{product.id ? "Editar lanche" : "Cadastrar lanche"}</h2>
-                  <label>Nome do lanche</label>
-                  <input required maxLength={150} disabled={busy} value={product.name} onChange={(e) => setProduct({ ...product, name: e.target.value })} placeholder="Ex.: X-salada" />
-                  <label>Ingredientes / descrição</label>
-                  <textarea maxLength={500} disabled={busy} value={product.description} onChange={(e) => setProduct({ ...product, description: e.target.value })} placeholder="Pão, hambúrguer, queijo…" />
-                  <label>Preço de venda (R$)</label>
-                  <input required inputMode="decimal" disabled={busy} value={product.price} onChange={(e) => setProduct({ ...product, price: e.target.value })} placeholder="18,50" />
-                  <label>Custo do lanche (R$) — para lucro</label>
-                  <input inputMode="decimal" disabled={busy} value={product.cost} onChange={(e) => setProduct({ ...product, cost: e.target.value })} placeholder="8,00" />
-                  <label>Categoria</label>
-                  <input disabled={busy} value={product.category} onChange={(e) => setProduct({ ...product, category: e.target.value })} placeholder="Ex.: Lanches, Bebidas, Porções" />
-                  <label>Estoque (-1 = ilimitado)</label>
-                  <input inputMode="numeric" disabled={busy} value={product.stock} onChange={(e) => setProduct({ ...product, stock: e.target.value })} placeholder="-1" />
-                  <label>Foto do lanche</label>
-                  <input ref={productPhotoInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} />
-                  <button className="primary" style={{ marginTop: 16, width: "100%" }} disabled={busy}>{busy ? "Salvando…" : "Salvar lanche"}</button>
-                  {product.id && <button type="button" className="small" style={{ marginTop: 8 }} disabled={busy} onClick={() => { setProduct({ id: "", name: "", description: "", price: "", category: "Geral", stock: "-1", cost: "" }); productId.current = ""; }}>Cancelar</button>}
-                </form>
-              </div>
-            </>
-          )}
-
-          {/* === GASTOS === */}
-          {tab === "gastos" && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Gastos</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Comprovante salvo. Gasto organizado.</p></div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <a href="/api/export?type=expenses" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV</a>
-                  <span className="badge">{brl(data.totals.costs)} no período</span>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 20, alignItems: "start" }}>
-                <form className="panel" onSubmit={saveExpense}>
-                  <h2>Registrar gasto</h2>
-                  <div className="fieldgrid">
-                    <div><label>Mercado / descrição</label><input required maxLength={150} disabled={busy} value={merchant} onChange={(e) => setMerchant(e.target.value)} placeholder="Ex.: Mercado do bairro" /></div>
-                    <div><label>Data da compra</label><input type="date" required disabled={busy} value={expenseDay} onChange={(e) => setExpenseDay(e.target.value)} /></div>
-                  </div>
-                  <label>Valor total (R$)</label>
-                  <input required inputMode="decimal" disabled={busy} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" />
-                  <label><Camera size={18} style={{ display: "inline" }} /> Foto do comprovante</label>
-                  <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(e) => selectPhoto(e.target.files?.[0])} />
-                  <p className="notice">JPG, PNG ou WebP, até 8 MB. Opcional.</p>
-                  {photoUrl && <img src={photoUrl} alt="Prévia" className="receipt" />}
-                  <button className="primary" style={{ marginTop: 16, width: "100%" }} disabled={busy}>{busy ? "Salvando…" : "Salvar gasto"}</button>
-                </form>
-                <aside className="panel">
-                  <h2>Gastos no período</h2>
-                  {!data.expenses.length && <p className="hint">Nenhum gasto no período.</p>}
-                  {data.expenses.map((e) => (
-                    <div className="row" key={e.id}>
-                      <div>
-                        <strong>{e.merchant}</strong>
-                        <small>{e.day.split("-").reverse().join("/")}</small>
-                        {e.receipt && <a href={"/api/receipt?id=" + e.id} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>Ver comprovante</a>}
-                      </div>
-                      <b>{brl(e.amount)}</b>
-                    </div>
-                  ))}
-                </aside>
-              </div>
-            </>
-          )}
-
-          {/* === GESTÃO === */}
-          {tab === "gestao" && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Gestão</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Seu negócio em números.</p></div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <a href={`/api/report?from=${from}&to=${to}`} target="_blank" className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><FileText size={14} /> Relatório</a>
-                  <a href={`/api/export?type=sales&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Vendas</a>
-                  <a href={`/api/export?type=expenses&from=${from}&to=${to}`} className="small" style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}><Download size={14} /> CSV Gastos</a>
-                </div>
-              </div>
-              <section className="panel" style={{ marginBottom: 20 }}><div className="fieldgrid">
-                <div><label>De</label><input type="date" value={from} onChange={(e) => { if (e.target.value) setFrom(e.target.value); }} /></div>
-                <div><label>Até</label><input type="date" value={to} onChange={(e) => { if (e.target.value) setTo(e.target.value); }} /></div>
-              </div></section>
-              <div className="stats">
-                <section className="panel"><span className="summary-label">Vendas</span><strong>{brl(data.totals.revenue)}</strong><p className="hint">{data.totals.count} vendas</p></section>
-                <section className="panel"><span className="summary-label">Gastos</span><strong>{brl(data.totals.costs)}</strong><p className="hint">{data.expenses.length} registros</p></section>
-                <section className="panel" style={{ background: "var(--foreground)", color: "var(--card)" }}><span style={{ opacity: .6 }}>Saldo</span><strong>{brl(data.totals.revenue - data.totals.costs)}</strong><p style={{ opacity: .5, fontSize: 12 }}>Vendas - Gastos</p></section>
-              </div>
-
-              <section className="panel history">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <h2>Histórico de vendas</h2>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Buscar…" style={{ padding: "6px 10px", fontSize: 13, width: 160 }} />
-                    <span className="hint">Pág. {page}</span>
-                    {page > 1 && <button className="small" onClick={() => setPage((p) => p - 1)}>Anterior</button>}
-                    {data.sales.length >= 200 && <button className="small" onClick={() => setPage((p) => p + 1)}>Próxima</button>}
-                  </div>
-                </div>
-                {!data.sales.length && <p className="hint">Nenhuma venda no período.</p>}
-                {data.sales.map((s) => (
-                  <div className="row" key={s.id}>
-                    <div>
-                      <strong>{new Date(s.created).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong>
-                      <small>{JSON.parse(s.lines).map((x: any) => `${x.qty}× ${x.name}`).join(" · ")}</small>
-                      <small>{s.payment}{s.payment === "Dinheiro" ? ` · Troco ${brl(s.received - s.total)}` : ""}{s.employee ? ` · ${s.employee}` : ""}{s.note ? ` · ${s.note}` : ""}</small>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <b>{brl(s.total)}</b>
-                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => printRecibo(s)} title="Imprimir recibo"><Printer size={14} /></button>
-                      {currentUser.role === "admin" && <button aria-label="Cancelar venda" className="btn btn-ghost btn-sm btn-icon" onClick={() => void deleteSale(s.id)} style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            </>
-          )}
-
-          {/* === DASHBOARD === */}
-          {tab === "dashboard" && (
-            <Dashboard from={from} to={to} branch={selectedBranch} />
-          )}
-
-          {/* === CONFIG === */}
-          {tab === "config" && currentUser.role === "admin" && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div><h2 style={{ fontSize: 18, fontWeight: 700 }}>Configurações</h2><p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Gerenciar sistema.</p></div>
-              </div>
-              <div className="stats">
-                <section className="panel">
-                  <h2>Estabelecimento</h2>
-                  <div className="row">
-                    <strong>Central Lanches</strong>
-                    <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Loja Principal</span>
-                  </div>
-                </section>
-                <section className="panel">
-                  <h2>Funcionários</h2>
-                  {showNewUser ? (
-                    <div>
-                      <label>Nome</label><input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
-                      <label>Usuário</label><input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} />
-                      <label>Senha</label><input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
-                      <label>Cargo</label>
-                      <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
-                        <option value="caixa">Caixa</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                      <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={async () => { await save({ action: "create-user", ...newUser }); setShowNewUser(false); setNewUser({ username: "", password: "", name: "", role: "caixa" }); setSuccess("Funcionário criado!"); }}>Salvar</button>
-                    </div>
-                  ) : <button className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={() => setShowNewUser(true)}><Plus size={14} /> Novo funcionário</button>}
-                </section>
-                <section className="panel">
-                  <h2>Acesso ao sistema</h2>
-                  <p className="hint">Cada funcionário deve usar sua própria conta. Somente administradores podem gerenciar usuários e cancelar vendas.</p>
-                </section>
-              </div>
-              <div className="stats" style={{ marginTop: 16 }}>
-                <section className="panel">
-                  <h2>Backup / Restore</h2>
-                  <p className="hint" style={{ marginBottom: 12 }}>Exporte produtos, vendas e gastos. A importação adiciona registros ausentes e preserva os existentes.</p>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="btn btn-outline btn-sm" onClick={async () => {
-                      const r = await fetch("/api/records?action=backup");
-                      const d = await r.json();
-                      if (!r.ok) { toastHook.toast("error", d.error); return; }
-                      const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a"); a.href = url; a.download = `central-lanches-backup-${today()}.json`; a.click();
-                      URL.revokeObjectURL(url);
-                      toastHook.toast("success", "Backup exportado!");
-                    }}><Download size={14} /> Exportar JSON</button>
-                    <label className="btn btn-outline btn-sm" style={{ cursor: "pointer" }}>
-                      <input type="file" accept=".json" style={{ display: "none" }} onChange={async (e) => {
-                        const file = e.target.files?.[0]; if (!file) return;
-                        const text = await file.text();
-                        try { const d = JSON.parse(text); await save({ action: "import", data: d }); toastHook.toast("success", "Backup restaurado!"); await refresh(); }
-                        catch { toastHook.toast("error", "Arquivo inválido."); }
-                      }} />
-                      <Package size={14} /> Importar JSON
-                    </label>
-                  </div>
-                </section>
-                <section className="panel">
-                  <h2>Atalhos de Teclado</h2>
-                  <div style={{ fontSize: 13, lineHeight: 2 }}>
-                    <div><kbd>F2</kbd> Caixa</div>
-                    <div><kbd>F3</kbd> Lanches</div>
-                    <div><kbd>F4</kbd> Gastos</div>
-                    <div><kbd>F5</kbd> Gestão</div>
-                    <div><kbd>F6</kbd> Dashboard</div>
-                    <div><kbd>Esc</kbd> Limpar campos</div>
-                  </div>
-                </section>
-              </div>
-            </>
-          )}
+        {/* Gráfico de Vendas por Hora */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
+          <div>
+            <h3 className="font-extrabold text-base text-gray-900">Vendas por Horário (Hoje)</h3>
+            <p className="text-xs text-gray-500">Volume vendido em R$ em cada faixa de horário</p>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={metrics?.hourlyData || []}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="hour" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
+                <Tooltip
+                  formatter={(value: any) => [`R$ ${Number(value).toFixed(2)}`, "Total"]}
+                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
+                />
+                <Bar dataKey="total" fill="#e8192c" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminShell>
   );
 }
-
-
