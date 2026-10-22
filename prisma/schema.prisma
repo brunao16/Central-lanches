@@ -8,51 +8,6 @@ generator client {
 }
 
 // -------------------------------------------------------------
-// ENUMS
-// -------------------------------------------------------------
-enum OrderType {
-  BALCAO
-  MESA
-  DELIVERY
-  RETIRADA
-}
-
-enum OrderStatus {
-  NOVO
-  PREPARANDO
-  PRONTO
-  SAIU_ENTREGA
-  ENTREGUE
-  CANCELADO
-}
-
-enum PaymentMethod {
-  DINHEIRO
-  PIX
-  DEBITO
-  CREDITO
-  MISTO
-}
-
-enum ExpenseCategory {
-  INSUMOS
-  ALUGUEL
-  FUNCIONARIOS
-  ENERGIA_AGUA
-  EQUIPAMENTOS
-  MARKETING
-  OUTROS
-}
-
-enum CashMovementType {
-  ABERTURA
-  SANGRIA
-  SUPRIMENTO
-  VENDA
-  FECHAMENTO
-}
-
-// -------------------------------------------------------------
 // CONFIGURAÇÕES DA LANCHONETE
 // -------------------------------------------------------------
 model Setting {
@@ -63,7 +18,7 @@ model Setting {
   pixKey          String   @default("pix@centrallanches.com.br")
   openingHours    String   @default("Terça a Domingo das 18h às 23h30")
   deliveryFee     Int      @default(500) // em centavos (R$ 5,00)
-  rewardThreshold Int      @default(100) // pontos para resgate de recompensa
+  rewardThreshold Int      @default(100) // pontos para resgate
   rewardDiscount  Int      @default(1500) // R$ 15,00 de desconto
   updatedAt       DateTime @updatedAt
 }
@@ -72,11 +27,11 @@ model Setting {
 // TAXAS DE ENTREGA POR BAIRRO
 // -------------------------------------------------------------
 model DeliveryZone {
-  id        String   @id @default(cuid())
-  neighborhood String @unique
-  fee       Int      // em centavos
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  neighborhood String   @unique
+  fee          Int      // em centavos
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 }
 
 // -------------------------------------------------------------
@@ -121,55 +76,51 @@ model Product {
 // CLIENTES & FIDELIDADE
 // -------------------------------------------------------------
 model Customer {
-  id          String    @id @default(cuid())
-  name        String
-  phone       String    @unique
-  address     String?
-  points      Int       @default(0)
-  orders      Order[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  address   String?
+  points    Int      @default(0)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // -------------------------------------------------------------
 // PEDIDOS & ITENS
 // -------------------------------------------------------------
 model Order {
-  id             String         @id @default(cuid())
-  code           String         @unique // código amigável ex: #1042
-  type           OrderType      @default(BALCAO)
-  status         OrderStatus    @default(NOVO)
+  id              String        @id @default(cuid())
+  code            String        @unique
+  type            String        @default("BALCAO")
+  status          String        @default("NOVO")
   
-  // Cliente e Destino
-  customerId     String?
-  customer       Customer?      @relation(fields: [customerId], references: [id])
-  customerName   String?
-  customerPhone  String?
-  tableNumber    Int?
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  customerName    String?
+  customerPhone   String?
+  tableNumber     Int?
   deliveryAddress String?
-  deliveryDriver String?
+  deliveryDriver  String?
   
-  // Valores (em centavos)
-  subtotal       Int
-  deliveryFee    Int            @default(0)
-  discount       Int            @default(0)
-  total          Int
+  subtotal        Int
+  deliveryFee     Int           @default(0)
+  discount        Int           @default(0)
+  total           Int
   
-  // Pagamento
-  paymentMethod  PaymentMethod  @default(PIX)
-  paid           Boolean        @default(true)
-  amountReceived Int?           // para cálculo de troco (dinheiro)
-  changeDue      Int?           // troco calculado
+  paymentMethod   String        @default("PIX")
+  paid            Boolean       @default(true)
+  amountReceived  Int?
+  changeDue       Int?
   
-  notes          String?
-  cancelReason   String?
+  notes           String?
+  cancelReason    String?
   
-  // Relações
-  items          OrderItem[]
-  cashMovement   CashMovement?
+  items           OrderItem[]
+  cashMovement    CashMovement?
   
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model OrderItem {
@@ -179,10 +130,10 @@ model OrderItem {
   productId   String?
   product     Product? @relation(fields: [productId], references: [id])
   productName String
-  unitPrice   Int      // em centavos
+  unitPrice   Int
   quantity    Int      @default(1)
-  totalPrice  Int      // em centavos
-  notes       String?  // ex: "sem cebola", "com bacon extra"
+  totalPrice  Int
+  notes       String?
 }
 
 // -------------------------------------------------------------
@@ -192,39 +143,39 @@ model CashRegister {
   id             String         @id @default(cuid())
   openedAt       DateTime       @default(now())
   closedAt       DateTime?
-  initialAmount  Int            // valor de abertura (em centavos)
-  finalAmount    Int?           // valor contado no fechamento
-  expectedAmount Int?           // calculado pelas movimentações
-  status         String         @default("ABERTO") // ABERTO ou FECHADO
+  initialAmount  Int
+  finalAmount    Int?
+  expectedAmount Int?
+  status         String         @default("ABERTO")
   notes          String?
   movements      CashMovement[]
 }
 
 model CashMovement {
-  id             String           @id @default(cuid())
-  registerId     String
-  register       CashRegister     @relation(fields: [registerId], references: [id], onDelete: Cascade)
-  type           CashMovementType
-  amount         Int              // em centavos (positivo)
-  description    String
-  orderId        String?          @unique
-  order          Order?           @relation(fields: [orderId], references: [id])
-  createdAt      DateTime         @default(now())
+  id          String       @id @default(cuid())
+  registerId  String
+  register    CashRegister @relation(fields: [registerId], references: [id], onDelete: Cascade)
+  type        String
+  amount      Int
+  description String
+  orderId     String?      @unique
+  order       Order?       @relation(fields: [orderId], references: [id])
+  createdAt   DateTime     @default(now())
 }
 
 // -------------------------------------------------------------
 // GASTOS / DESPESAS
 // -------------------------------------------------------------
 model Expense {
-  id            String          @id @default(cuid())
+  id            String   @id @default(cuid())
   description   String
-  category      ExpenseCategory @default(OUTROS)
-  amount        Int             // em centavos
-  date          DateTime        @default(now())
-  paymentMethod PaymentMethod   @default(PIX)
-  isRecurring   Boolean         @default(false)
+  category      String   @default("OUTROS")
+  amount        Int
+  date          DateTime @default(now())
+  paymentMethod String   @default("PIX")
+  isRecurring   Boolean  @default(false)
   notes         String?
-  createdAt     DateTime        @default(now())
+  createdAt     DateTime @default(now())
 }
 
 // -------------------------------------------------------------
@@ -233,10 +184,10 @@ model Expense {
 model InventoryItem {
   id          String   @id @default(cuid())
   name        String   @unique
-  unit        String   @default("kg") // kg, un, l, pct
+  unit        String   @default("kg")
   quantity    Float    @default(0)
   minQuantity Float    @default(5)
-  cost        Int      @default(0) // custo unitário em centavos
+  cost        Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
