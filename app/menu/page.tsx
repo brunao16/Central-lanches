@@ -14,7 +14,9 @@ import {
   QrCode,
   X,
   Sparkles,
+  MessageCircle,
 } from "lucide-react";
+import { createWhatsAppLink } from "@/lib/utils";
 
 interface MenuItem {
   id: string;
@@ -193,6 +195,21 @@ export default function PublicMenuPage() {
       setFinishedOrder(d.order);
       setCart({});
 
+      // Notificação Automática no WhatsApp do Cliente
+      if (customerPhone) {
+        const orderUrl = `${window.location.origin}/pedido/${encodeURIComponent(d.order.code)}`;
+        const itemsList = cartList
+          .map((c) => `• ${c.qty}x ${c.item.name}${c.notes ? ` (${c.notes})` : ""}`)
+          .join("\n");
+        const waMsg = `Olá, ${customerName}! 🍔\nSeu pedido *#${d.order.code}* na *Central Lanches* foi confirmado com sucesso!\n\n*Resumo do Pedido:*\n${itemsList}\n\n*Total:* ${formatCurrency(d.order.total)}\n*Pagamento:* ${paymentMethod}\n\nAcompanhe o preparo em tempo real aqui:\n${orderUrl}\n\nAgradecemos a sua preferência!`;
+        const waLink = createWhatsAppLink(customerPhone, waMsg);
+        
+        // Abre automaticamente o WhatsApp numa nova aba
+        setTimeout(() => {
+          window.open(waLink, "_blank");
+        }, 1200);
+      }
+
       // Se pagou via PIX, gera BR Code
       if (paymentMethod === "PIX" && setting?.pixKey) {
         const payload = generatePixPayload({
@@ -257,6 +274,21 @@ export default function PublicMenuPage() {
             <div className="text-xs text-gray-400">Código de Acompanhamento:</div>
             <div className="text-2xl font-black text-primary">#{finishedOrder.code}</div>
           </div>
+
+          {finishedOrder.customerPhone && (
+            <a
+              href={createWhatsAppLink(
+                finishedOrder.customerPhone,
+                `Olá, ${finishedOrder.customerName || "Cliente"}! Seu pedido #${finishedOrder.code} na Central Lanches está confirmado no valor de ${formatCurrency(finishedOrder.total)}. Acompanhe em tempo real: ${typeof window !== "undefined" ? window.location.origin : ""}/pedido/${finishedOrder.code}`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-emerald-200"
+            >
+              <MessageCircle size={18} />
+              <span>Receber Atualizações no WhatsApp</span>
+            </a>
+          )}
 
           <a
             href={`/pedido/${encodeURIComponent(finishedOrder.code)}`}
