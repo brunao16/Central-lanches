@@ -15,6 +15,7 @@ import {
   AlertCircle,
   ShoppingBag,
 } from "lucide-react";
+import { printReceipt } from "@/lib/print";
 
 interface CartItem {
   id: string;
@@ -164,7 +165,29 @@ export default function CaixaPage() {
       setAmountReceived("");
       setDiscount("0,00");
       setOrderNotes("");
-      alert("Venda finalizada com sucesso!");
+
+      // Imprime automaticamente a comanda para o cliente/motoboy
+      printReceipt({
+        code: data.order.code,
+        type: data.order.type,
+        tableNumber: data.order.tableNumber,
+        customerName: data.order.customerName,
+        customerPhone: data.order.customerPhone,
+        deliveryAddress: data.order.deliveryAddress,
+        createdAt: data.order.createdAt,
+        items: data.order.items.map((it: any) => ({
+          name: it.productName,
+          quantity: it.quantity,
+          price: it.unitPrice,
+          notes: it.notes,
+        })),
+        subtotal: data.order.subtotal || data.order.total,
+        deliveryFee: data.order.deliveryFee,
+        discount: data.order.discount,
+        total: data.order.total,
+        paymentMethod: data.order.paymentMethod,
+        notes: data.order.notes,
+      }, "CUSTOMER");
     } catch (e: any) {
       alert("Erro ao finalizar venda: " + e.message);
     }

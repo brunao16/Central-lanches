@@ -24,6 +24,7 @@ const navigation = [
   { name: "Cozinha", href: "/cozinha", icon: ChefHat },
   { name: "Delivery", href: "/delivery", icon: Bike },
   { name: "Cardápio", href: "/cardapio", icon: UtensilsCrossed },
+  { name: "QR Mesas", href: "/mesas", icon: UtensilsCrossed },
   { name: "Pedidos", href: "/pedidos", icon: Receipt },
   { name: "Gastos", href: "/gastos", icon: DollarSign },
   { name: "Estoque", href: "/estoque", icon: Package },
