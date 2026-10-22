@@ -47,14 +47,7 @@ export default function AccountPage() {
     setSaving(false);
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
-    localStorage.removeItem("cl_user");
-    localStorage.removeItem("cl_token");
-    localStorage.removeItem("cl_onboarded");
-    document.cookie = "cl_token=; path=/; max-age=0";
-    window.location.href = "/login";
-  }
+
 
   function exportData() {
     const blob = new Blob([JSON.stringify({ user }, null, 2)], { type: "application/json" });
@@ -153,16 +146,7 @@ export default function AccountPage() {
           </div>
         </div>
 
-        <div className="card danger-zone">
-          <h3>Zona de perigo</h3>
-          <div className="row">
-            <div className="row-info">
-              <h4>Sair da conta</h4>
-              <p>Desconectar deste dispositivo</p>
-            </div>
-            <button className="btn btn-danger" style={{ fontSize: 13, padding: "8px 16px" }} onClick={handleLogout}>Sair</button>
-          </div>
-        </div>
+
 
         <div style={{ textAlign: "center", marginTop: 20 }}>
           <Link href="/" style={{ color: "#6c757d", fontSize: 14, textDecoration: "none" }}>← Voltar para o painel</Link>

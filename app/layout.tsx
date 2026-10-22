@@ -6,7 +6,10 @@ export const metadata: Metadata = {
   description: "Vendas, cardápio e gastos da Central Lanches.",
   icons: { icon: "/favicon.svg" },
   manifest: "/manifest.json",
-
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#e8192c" };

@@ -330,11 +330,6 @@ function HomeInner() {
     setPhoto(f);
   }
 
-  async function logout() {
-    await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
-    localStorage.removeItem("cl_user"); localStorage.removeItem("cl_token"); window.location.href = "/login";
-  }
-
   if (authLoading || !currentUser) return <div className="session-loading" role="status">Carregando Central Lanches…</div>;
 
   const isOnboarded = typeof window !== "undefined" ? localStorage.getItem("cl_onboarded") === "1" : true;
@@ -423,7 +418,6 @@ function HomeInner() {
             </div>
             <div style={{ display: "flex", gap: 4 }}>
               <button aria-label="Alternar tema" className="btn btn-ghost btn-sm btn-icon" onClick={toggleDark}>{darkMode ? "☀" : "🌙"}</button>
-              <button aria-label="Sair da conta" className="btn btn-ghost btn-sm btn-icon" onClick={logout}><Lock size={14} /></button>
             </div>
           </div>
         </div>

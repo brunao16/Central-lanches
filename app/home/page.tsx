@@ -133,7 +133,7 @@ export default function HomePage() {
           <a href="#features">Funcionalidades</a>
           <a href="#pricing">Planos</a>
           <a href="#testimonials">Depoimentos</a>
-          <Link href="/login" className="nav-cta">Entrar</Link>
+          <Link href="/" className="nav-cta">Acessar Sistema</Link>
         </div>
       </nav>
 
@@ -142,7 +142,7 @@ export default function HomePage() {
         <h1>O sistema completo para seu <span>restaurante</span></h1>
         <p>Caixa, cardápio digital, cozinha, delivery, fidelidade e gestão — tudo em uma plataforma. Sem complicação, sem comissão.</p>
         <div className="hero-actions">
-          <Link href="/register" className="btn-hero btn-hero-primary">Testar 7 Dias Grátis</Link>
+          <Link href="/" className="btn-hero btn-hero-primary">Acessar o Painel</Link>
           <a href="#features" className="btn-hero btn-hero-secondary">Ver funcionalidades</a>
         </div>
       </section>

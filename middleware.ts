@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Se o usuário tentar acessar a tela de login, redireciona direto para o sistema
-  if (pathname === "/login") {
+  // Redireciona /login e /register diretamente para a raiz do painel
+  if (pathname === "/login" || pathname.startsWith("/login/") || pathname === "/register" || pathname.startsWith("/register/")) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
