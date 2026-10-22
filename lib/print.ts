@@ -53,7 +53,7 @@ export function printReceipt(order: PrintOrderData, target: "CUSTOMER" | "KITCHE
     .title { font-size: 16px; margin-bottom: 2px; }
     .divider { border-top: 1px dashed #000; margin: 8px 0; }
     .item-row { display: flex; justify-content: space-between; margin: 4px 0; }
-    .notes { font-size: 11px; font-style: italic; padding-left: 10px; }
+    .notes { font-size: 13px; font-weight: bold; text-transform: uppercase; padding: 3px 6px; margin-top: 3px; background: #eee; border-left: 3px solid #000; }
     .tag { font-size: 18px; padding: 4px; border: 1px solid #000; display: inline-block; margin: 6px 0; }
   </style>
 </head>
@@ -85,11 +85,11 @@ export function printReceipt(order: PrintOrderData, target: "CUSTOMER" | "KITCHE
   ${order.items
     .map(
       (it) => `
-    <div class="item-row">
-      <span><b>${it.quantity}x</b> ${it.name}</span>
+    <div class="item-row" style="margin-top: 6px;">
+      <span><b style="font-size: 14px;">${it.quantity}x</b> <b style="font-size: 14px;">${it.name}</b></span>
       ${!isKitchen ? `<span>${formatCurrency(it.price * it.quantity)}</span>` : ""}
     </div>
-    ${it.notes ? `<div class="notes">Obs: ${it.notes}</div>` : ""}
+    ${it.notes ? `<div class="notes">OBS: ${it.notes.toUpperCase()}</div>` : ""}
   `
     )
     .join("")}
@@ -98,7 +98,7 @@ export function printReceipt(order: PrintOrderData, target: "CUSTOMER" | "KITCHE
     order.notes
       ? `
     <div class="divider"></div>
-    <div><b>Observação Geral:</b> ${order.notes}</div>
+    <div class="notes" style="font-size: 14px; padding: 5px;">OBS GERAL: ${order.notes.toUpperCase()}</div>
   `
       : ""
   }

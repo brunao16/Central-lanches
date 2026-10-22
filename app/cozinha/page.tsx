@@ -188,8 +188,8 @@ export default function CozinhaPage() {
                           {it.quantity}x {it.productName}
                         </div>
                         {it.notes && (
-                          <div className="text-xs text-red-700 font-bold bg-red-50 border border-red-200 px-2 py-1 rounded mt-1">
-                            ⚠️ {it.notes}
+                          <div className="text-xs text-red-900 font-black uppercase bg-red-100/90 border-2 border-red-500 px-2.5 py-1.5 rounded-lg mt-1 tracking-wide shadow-xs">
+                            ⚠️ OBS: {it.notes.toUpperCase()}
                           </div>
                         )}
                       </div>
@@ -197,8 +197,8 @@ export default function CozinhaPage() {
                   </div>
 
                   {order.notes && (
-                    <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-lg font-medium">
-                      Obs Geral: {order.notes}
+                    <div className="text-xs text-amber-950 font-black uppercase bg-amber-100 border-2 border-amber-500 p-2.5 rounded-xl tracking-wide shadow-xs">
+                      ⚠️ OBS GERAL: {order.notes.toUpperCase()}
                     </div>
                   )}
 
@@ -266,13 +266,19 @@ export default function CozinhaPage() {
                           {it.quantity}x {it.productName}
                         </div>
                         {it.notes && (
-                          <div className="text-xs text-red-700 font-bold bg-red-50 border border-red-200 px-2 py-1 rounded mt-1">
-                            ⚠️ {it.notes}
+                          <div className="text-xs text-red-900 font-black uppercase bg-red-100/90 border-2 border-red-500 px-2.5 py-1.5 rounded-lg mt-1 tracking-wide shadow-xs">
+                            ⚠️ OBS: {it.notes.toUpperCase()}
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
+
+                  {order.notes && (
+                    <div className="text-xs text-amber-950 font-black uppercase bg-amber-100 border-2 border-amber-500 p-2.5 rounded-xl tracking-wide shadow-xs">
+                      ⚠️ OBS GERAL: {order.notes.toUpperCase()}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2 pt-1">
                     <button

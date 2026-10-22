@@ -125,7 +125,11 @@ export default function AcompanharPedidoPage() {
               <div key={i} className="py-2.5 flex justify-between">
                 <div>
                   <span className="font-bold text-gray-200">{it.quantity}x {it.productName}</span>
-                  {it.notes && <div className="text-amber-400 font-medium">Obs: {it.notes}</div>}
+                  {it.notes && (
+                    <div className="text-[11px] text-amber-300 font-black uppercase bg-amber-950/60 border border-amber-600/50 px-2 py-0.5 rounded mt-1 inline-block tracking-wide">
+                      OBS: {it.notes.toUpperCase()}
+                    </div>
+                  )}
                 </div>
                 <span className="font-black text-gray-300">{formatCurrency(it.totalPrice)}</span>
               </div>

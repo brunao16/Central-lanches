@@ -570,8 +570,8 @@ export default function PublicMenuPage() {
                     <div className="flex-1">
                       <div className="font-extrabold text-sm text-gray-100">{c.item.name}</div>
                       {c.notes && (
-                        <div className="text-[11px] text-amber-400 font-semibold bg-amber-950/40 border border-amber-800/30 px-2 py-0.5 rounded mt-1 inline-block">
-                          {c.notes}
+                        <div className="text-[11px] text-amber-300 font-black uppercase bg-amber-950/60 border border-amber-600/50 px-2 py-1 rounded-md mt-1 inline-block tracking-wide">
+                          OBS: {c.notes.toUpperCase()}
                         </div>
                       )}
                       <div className="font-black text-red-500 text-xs mt-1">
