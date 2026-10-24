@@ -72,21 +72,26 @@ export default function AdminDashboardPage() {
   const onlineOrders = orders.filter(o => o.payment_method === 'pix');
   const deliveryOrders = orders.filter(o => o.payment_method === 'cash_on_delivery' || o.payment_method === 'credit_card');
 
-  // 1. Métrica Pagamento na Entrega (Boleto Mensal de 10%)
+  // 1. Métrica Pagamento na Entrega (Boleto Mensal de comissão apurada no banco)
   const totalDeliveryVolumeCents = deliveryOrders.reduce((acc, o) => acc + (o.total_cents || 0), 0);
-  const totalBoletoCommissionCents = Math.round(totalDeliveryVolumeCents * 0.10); // 10% a cobrar no boleto
+  const totalBoletoCommissionCents = deliveryOrders.reduce((acc, o) => {
+    return acc + (o.platform_fee_cents ?? Math.round((o.subtotal_cents || o.total_cents || 0) * 0.10));
+  }, 0);
 
-  // 2. Métrica Pagamento Online (Repasse Semanal com taxas)
-  // Taxas: 10% plataforma + 3,5% taxa bancária + R$ 2,00 por transferência
+  // 2. Métrica Pagamento Online (Repasse Semanal com taxas apuradas no banco)
   const totalOnlineVolumeCents = onlineOrders.reduce((acc, o) => acc + (o.total_cents || 0), 0);
-  const onlinePlatform10Cents = Math.round(totalOnlineVolumeCents * 0.10);
-  const onlineBankFeeCents = Math.round(totalOnlineVolumeCents * 0.035); // 3.5%
+  const onlinePlatform10Cents = onlineOrders.reduce((acc, o) => {
+    return acc + (o.platform_fee_cents ?? Math.round((o.subtotal_cents || o.total_cents || 0) * 0.10));
+  }, 0);
+  const onlineBankFeeCents = Math.round(totalOnlineVolumeCents * 0.035); // 3.5% taxa Asaas de gateway
   const totalOnlineDeductionsCents = onlinePlatform10Cents + onlineBankFeeCents;
   const netOnlineRepasseCents = Math.max(0, totalOnlineVolumeCents - totalOnlineDeductionsCents);
 
-  // Volume Total Global
+  // Volume Total Global & Lucro Líquido Real da Plataforma
   const totalVolumeCents = orders.reduce((acc, o) => acc + (o.total_cents || 0), 0);
-  const totalProfitCents = onlinePlatform10Cents + totalBoletoCommissionCents;
+  const totalProfitCents = orders.reduce((acc, o) => {
+    return acc + (o.platform_fee_cents ?? Math.round((o.subtotal_cents || o.total_cents || 0) * 0.10));
+  }, 0);
 
   const filteredRestaurants = restaurants.filter(r =>
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

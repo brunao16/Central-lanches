@@ -37,6 +37,32 @@ export default function OrderTrackingPage() {
   const [ratingStars, setRatingStars] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    const reason = window.prompt('Por qual motivo você deseja cancelar o pedido?');
+    if (!reason || !reason.trim()) return;
+
+    try {
+      setCanceling(true);
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Não foi possível cancelar o pedido.');
+        return;
+      }
+      setOrder((prev: any) => ({ ...prev, status: 'canceled', cancellation_reason: `Cancelado pelo cliente: ${reason.trim()}` }));
+      alert('Pedido cancelado com sucesso.');
+    } catch {
+      alert('Erro de conexão ao cancelar o pedido.');
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   useEffect(() => {
     if (orderId) {
@@ -258,6 +284,20 @@ export default function OrderTrackingPage() {
               <span>A caminho</span>
               <span>Entregue</span>
             </div>
+
+            {/* Cancelamento pelo Cliente quando Pendente */}
+            {order.status === 'pending' && (
+              <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-gray-500">Errou algo ou desistiu do pedido?</span>
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={canceling}
+                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition-all cursor-pointer border border-rose-200 disabled:opacity-50"
+                >
+                  {canceling ? 'Cancelando...' : 'Cancelar Pedido'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

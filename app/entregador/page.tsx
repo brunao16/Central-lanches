@@ -56,13 +56,39 @@ export default function DeliveryCourierPage() {
   };
 
   const markAsDelivered = async (orderId: string) => {
-    await supabase.from('orders').update({ status: 'delivered', updated_at: new Date().toISOString() }).eq('id', orderId);
-    setOrders(orders.filter(o => o.id !== orderId));
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'delivered' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Erro ao concluir entrega.');
+        return;
+      }
+      setOrders(orders.filter(o => o.id !== orderId));
+    } catch {
+      alert('Falha na conexão ao concluir entrega.');
+    }
   };
 
   const markAsOutForDelivery = async (orderId: string) => {
-    await supabase.from('orders').update({ status: 'out_for_delivery', updated_at: new Date().toISOString() }).eq('id', orderId);
-    setOrders(orders.map(o => o.id === orderId ? { ...o, status: 'out_for_delivery' } : o));
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'out_for_delivery' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Erro ao iniciar corrida.');
+        return;
+      }
+      setOrders(orders.map(o => o.id === orderId ? { ...o, status: 'out_for_delivery' } : o));
+    } catch {
+      alert('Falha na conexão ao iniciar corrida.');
+    }
   };
 
   if (loading) {
@@ -151,9 +177,27 @@ export default function DeliveryCourierPage() {
                         <span>Destino (Cliente)</span>
                       </span>
                       <p className="font-bold text-gray-900">{o.delivery_address?.name}</p>
-                      <p className="text-gray-600">{fullCustomerAddress}</p>
-                      {o.delivery_address?.complement && (
-                        <p className="text-gray-500">Compl: {o.delivery_address.complement}</p>
+                      {o.status === 'out_for_delivery' ? (
+                        <>
+                          <p className="text-gray-700 font-medium">{fullCustomerAddress}</p>
+                          {o.delivery_address?.complement && (
+                            <p className="text-gray-500">Compl: {o.delivery_address.complement}</p>
+                          )}
+                          {o.delivery_address?.phone && (
+                            <a
+                              href={`tel:${o.delivery_address.phone}`}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 mt-1 hover:underline"
+                            >
+                              <Phone className="w-3 h-3" />
+                              <span>{o.delivery_address.phone}</span>
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-gray-500 text-[11px]">
+                          <p>Bairro: <span className="font-bold text-gray-700">{o.delivery_address?.neighborhood}</span></p>
+                          <p className="text-[10px] text-amber-700 mt-0.5">Rua exata e telefone serão liberados ao iniciar a corrida.</p>
+                        </div>
                       )}
                     </div>
                   </div>

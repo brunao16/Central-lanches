@@ -49,8 +49,33 @@ export default function RestaurantDashboardPage() {
 
   // Status Aberto/Fechado
   const [isOpen, setIsOpen] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
-  // Alerta sonoro de novo pedido (Web Audio API nativo sem precisar de arquivo mp3 externo)
+  // Alerta sonoro de novo pedido (Web Audio API nativo com suporte a desbloqueio explícito por gesto do usuário)
+  const enableAudio = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      // Tocar som de teste
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.4);
+      setAudioEnabled(true);
+    } catch (e) {
+      console.warn('AudioContext failed to enable:', e);
+    }
+  };
+
   const playOrderAlert = () => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -59,7 +84,7 @@ export default function RestaurantDashboardPage() {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota Lá (A5)
       osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.3); // Sobe para Mi (E6)
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
@@ -164,9 +189,28 @@ export default function RestaurantDashboardPage() {
     if (data) setOrders(data);
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-    setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+  const updateOrderStatus = async (orderId: string, newStatus: string, cancellationReason?: string) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, cancellationReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Erro ao atualizar status do pedido.');
+        return;
+      }
+      setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    } catch {
+      alert('Falha na conexão ao atualizar status do pedido.');
+    }
+  };
+
+  const handleCancelOrderPrompt = async (orderId: string) => {
+    const reason = window.prompt('Informe o motivo do cancelamento do pedido:');
+    if (!reason || !reason.trim()) return;
+    await updateOrderStatus(orderId, 'canceled', reason.trim());
   };
 
   const toggleRestaurantOpen = async () => {
@@ -276,7 +320,20 @@ export default function RestaurantDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={enableAudio}
+              className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold text-xs transition-all cursor-pointer ${
+                audioEnabled
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              title="Permite que o navegador toque o alarme sonoro quando chegar um pedido novo"
+            >
+              <Bell className={`w-4 h-4 ${audioEnabled ? 'text-amber-600 animate-bounce' : 'text-gray-500'}`} />
+              <span>{audioEnabled ? 'Som Ativado' : 'Ativar Som de Pedidos'}</span>
+            </button>
+
             <button
               onClick={toggleRestaurantOpen}
               className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
@@ -396,20 +453,36 @@ export default function RestaurantDashboardPage() {
 
                       <div className="grid grid-cols-2 gap-2">
                         {o.status === 'pending' && (
-                          <button
-                            onClick={() => updateOrderStatus(o.id, 'preparing')}
-                            className="col-span-2 py-2.5 bg-[#FF3B00] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#E03400] cursor-pointer"
-                          >
-                            Aceitar & Preparar
-                          </button>
+                          <>
+                            <button
+                              onClick={() => updateOrderStatus(o.id, 'preparing')}
+                              className="py-2.5 bg-[#FF3B00] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#E03400] cursor-pointer"
+                            >
+                              Aceitar & Preparar
+                            </button>
+                            <button
+                              onClick={() => handleCancelOrderPrompt(o.id)}
+                              className="py-2.5 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl hover:bg-rose-100 cursor-pointer"
+                            >
+                              Recusar Pedido
+                            </button>
+                          </>
                         )}
                         {o.status === 'preparing' && (
-                          <button
-                            onClick={() => updateOrderStatus(o.id, 'out_for_delivery')}
-                            className="col-span-2 py-2.5 bg-purple-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-purple-700 cursor-pointer"
-                          >
-                            Despachar para Entrega
-                          </button>
+                          <>
+                            <button
+                              onClick={() => updateOrderStatus(o.id, 'out_for_delivery')}
+                              className="py-2.5 bg-purple-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-purple-700 cursor-pointer"
+                            >
+                              Despachar Entrega
+                            </button>
+                            <button
+                              onClick={() => handleCancelOrderPrompt(o.id)}
+                              className="py-2.5 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl hover:bg-rose-100 cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                          </>
                         )}
                         {o.status === 'out_for_delivery' && (
                           <button
@@ -418,6 +491,11 @@ export default function RestaurantDashboardPage() {
                           >
                             Marcar como Entregue
                           </button>
+                        )}
+                        {o.status === 'canceled' && (
+                          <div className="col-span-2 p-2 bg-gray-100 rounded-xl text-center text-xs text-gray-500 font-bold">
+                            Cancelado {o.cancellation_reason ? `(${o.cancellation_reason})` : ''}
+                          </div>
                         )}
                       </div>
                     </div>
