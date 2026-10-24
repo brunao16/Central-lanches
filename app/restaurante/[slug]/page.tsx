@@ -67,6 +67,7 @@ export default function RestaurantStorefrontPage() {
             min_order_cents: 2000,
             is_open: true,
             phone: '35999998888',
+            image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80',
           });
           setCategories([
             { id: 'b0000000-0000-0000-0000-000000000001', name: 'Hambúrgueres Artesanais' },
@@ -81,6 +82,7 @@ export default function RestaurantStorefrontPage() {
               description: 'Pão brioche selado na manteiga, blend 180g de carne nobre, cheddar cremoso e fatias de bacon crocante.',
               price_cents: 2890,
               is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
             },
             {
               id: 'c0000000-0000-0000-0000-000000000002',
@@ -89,6 +91,7 @@ export default function RestaurantStorefrontPage() {
               description: 'Dois blends prensados de 90g, queijo prato duplo derretido, cebola chapeada e maionese artesanal.',
               price_cents: 2490,
               is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80',
             },
             {
               id: 'c0000000-0000-0000-0000-000000000003',
@@ -97,6 +100,7 @@ export default function RestaurantStorefrontPage() {
               description: 'Batata crocante temperada com páprica, coberta com cheddar derretido e cubos de bacon.',
               price_cents: 2600,
               is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80',
             },
             {
               id: 'c0000000-0000-0000-0000-000000000004',
@@ -105,6 +109,90 @@ export default function RestaurantStorefrontPage() {
               description: 'Refrigerante bem gelado para acompanhar o lanche.',
               price_cents: 600,
               is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
+            },
+          ]);
+          setLoading(false);
+          return;
+        }
+
+        if (slug === 'pizzaria-bella-fornada') {
+          setRestaurant({
+            id: 'a0000000-0000-0000-0000-000000000002',
+            name: 'Pizzaria Bella Fornada',
+            slug: 'pizzaria-bella-fornada',
+            description: 'Pizzas artesanais assadas no forno a lenha, massa fininha e borda recheada.',
+            delivery_fee_cents: 500,
+            delivery_time_min: 35,
+            delivery_time_max: 55,
+            min_order_cents: 3500,
+            is_open: true,
+            phone: '35988887777',
+            image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+          });
+          setCategories([
+            { id: 'b0000000-0000-0000-0000-000000000010', name: 'Pizzas Grandes (8 Fatias)' },
+            { id: 'b0000000-0000-0000-0000-000000000011', name: 'Bebidas' },
+          ]);
+          setProducts([
+            {
+              id: 'c0000000-0000-0000-0000-000000000010',
+              category_id: 'b0000000-0000-0000-0000-000000000010',
+              name: 'Pizza Calabresa Especial com Catupiry',
+              description: 'Molho artesanal de tomate pelado, mussarela premium, calabresa fatiada, cebola roxa e borda de Catupiry original.',
+              price_cents: 5290,
+              is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=600&q=80',
+            },
+            {
+              id: 'c0000000-0000-0000-0000-000000000011',
+              category_id: 'b0000000-0000-0000-0000-000000000010',
+              name: 'Pizza Frango com Catupiry',
+              description: 'Peito de frango desfiado temperado com ervas finas, mussarela gratinada e Catupiry.',
+              price_cents: 5490,
+              is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80',
+            },
+            {
+              id: 'c0000000-0000-0000-0000-000000000012',
+              category_id: 'b0000000-0000-0000-0000-000000000011',
+              name: 'Guaraná Antarctica 2 Litros',
+              description: 'Garrafa família bem gelada.',
+              price_cents: 1200,
+              is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
+            },
+          ]);
+          setLoading(false);
+          return;
+        }
+
+        if (slug === 'acai-delicias-do-vale') {
+          setRestaurant({
+            id: 'a0000000-0000-0000-0000-000000000003',
+            name: 'Açaí & Delícias do Vale',
+            slug: 'acai-delicias-do-vale',
+            description: 'Açaí cremoso batido na hora com mais de 25 adicionais e frutas frescas.',
+            delivery_fee_cents: 0,
+            delivery_time_min: 20,
+            delivery_time_max: 35,
+            min_order_cents: 1500,
+            is_open: true,
+            phone: '35977776666',
+            image_url: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=1200&q=80',
+          });
+          setCategories([
+            { id: 'b0000000-0000-0000-0000-000000000020', name: 'Copos & Tigelas' },
+          ]);
+          setProducts([
+            {
+              id: 'c0000000-0000-0000-0000-000000000020',
+              category_id: 'b0000000-0000-0000-0000-000000000020',
+              name: 'Copo Supremo 500ml',
+              description: 'Açaí puro batido com banana, camadas de leite condensado, leite Ninho, morangos frescos e Nutella.',
+              price_cents: 2200,
+              is_available: true,
+              image_url: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=600&q=80',
             },
           ]);
           setLoading(false);
@@ -204,9 +292,19 @@ export default function RestaurantStorefrontPage() {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-3xl bg-[#FFF0EB] text-[#FF3B00] flex items-center justify-center font-black text-3xl shadow-xs">
-                <Store className="w-10 h-10" />
-              </div>
+              {restaurant.image_url ? (
+                <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-md border-2 border-white shrink-0">
+                  <img
+                    src={restaurant.image_url}
+                    alt={restaurant.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-3xl bg-[#FFF0EB] text-[#FF3B00] flex items-center justify-center font-black text-3xl shadow-xs shrink-0">
+                  <Store className="w-10 h-10" />
+                </div>
+              )}
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl sm:text-3xl font-black text-gray-900">{restaurant.name}</h1>
@@ -273,15 +371,28 @@ export default function RestaurantStorefrontPage() {
                       className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs hover:border-[#FF3B00]/40 hover:shadow-md transition-all cursor-pointer flex justify-between gap-4"
                     >
                       <div className="flex-1">
-                        <h3 className="font-bold text-base text-gray-900">{prod.name}</h3>
+                        <h3 className="font-bold text-base text-gray-900 group-hover:text-[#FF3B00] transition-colors">{prod.name}</h3>
                         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{prod.description}</p>
                         <span className="inline-block mt-3 font-black text-base text-[#FF3B00]">
                           R$ {(prod.price_cents / 100).toFixed(2).replace('.', ',')}
                         </span>
                       </div>
-                      <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-[#FF3B00] hover:bg-[#FFF0EB] transition-colors shrink-0">
-                        <Plus className="w-5 h-5" />
-                      </div>
+                      {prod.image_url ? (
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 border border-gray-100 shadow-xs relative">
+                          <img
+                            src={prod.image_url}
+                            alt={prod.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#FF3B00] shadow-xs">
+                            <Plus className="w-4 h-4" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-[#FF3B00] hover:bg-[#FFF0EB] transition-colors shrink-0">
+                          <Plus className="w-5 h-5" />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
