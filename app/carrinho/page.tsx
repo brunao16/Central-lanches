@@ -81,13 +81,6 @@ export default function CartAndCheckoutPage() {
     setErrorMsg('');
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      let changeForCents = null;
-      if (paymentMethod === 'cash_on_delivery' && needsChange && changeForReais) {
-        changeForCents = Math.round(parseFloat(changeForReais.replace(',', '.')) * 100);
-      }
-
       const deliveryAddress = {
         name: customerName,
         phone: customerPhone,
@@ -98,92 +91,52 @@ export default function CartAndCheckoutPage() {
         reference,
       };
 
-      // Cálculo de comissão (10% padrão da plataforma)
-      const platformFeeCents = Math.round(subtotalCents * 0.10);
-      const restaurantNetCents = subtotalCents - platformFeeCents;
+      // Chamar endpoint seguro do servidor (recalcula preços, valida cupom e grava atomicamente)
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId,
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            notes: i.notes || undefined,
+          })),
+          address: deliveryAddress,
+          paymentMethod,
+          changeForReais: needsChange ? changeForReais : undefined,
+          customerNotes: orderNotes,
+          couponCode: appliedCoupon?.code,
+        }),
+      });
 
-      // 1. Criar pedido no Supabase
-      let createdOrderId: string | null = null;
-      const { data: orderData, error: orderErr } = await supabase
-        .from('orders')
-        .insert([
-          {
-            customer_id: user?.id || null,
-            restaurant_id: restaurantId,
-            delivery_address: deliveryAddress,
-            subtotal_cents: subtotalCents,
-            delivery_fee_cents: deliveryFeeCents,
-            discount_cents: discountCents,
-            total_cents: totalCents,
-            platform_fee_cents: platformFeeCents,
-            restaurant_net_cents: restaurantNetCents,
-            status: 'pending',
-            payment_method: paymentMethod,
-            payment_status: paymentMethod === 'cash_on_delivery' ? 'pending' : 'pending',
-            change_for_cents: changeForCents,
-            customer_notes: orderNotes,
-          },
-        ])
-        .select()
-        .single();
+      const data = await res.json();
 
-      if (!orderErr && orderData) {
-        createdOrderId = orderData.id;
-        // Inserir itens
-        const orderItems = items.map((i) => ({
-          order_id: orderData.id,
-          product_id: i.productId,
-          product_name: i.name,
-          unit_price_cents: i.priceCents,
-          quantity: i.quantity,
-          total_price_cents: i.priceCents * i.quantity,
-          notes: i.notes || null,
-        }));
-        await supabase.from('order_items').insert(orderItems);
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Não foi possível registrar o pedido.');
+      }
 
-        // Se for Pix, chamar API de integração Asaas
-        if (paymentMethod === 'pix') {
-          try {
-            await fetch('/api/asaas/payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: orderData.id }),
-            });
-          } catch (apiErr) {
-            console.error('Asaas API call warning:', apiErr);
-          }
-        }
-      } else {
-        // Fallback robusto para demonstração se a tabela não tiver a FK do restaurante ainda
-        createdOrderId = 'demo-' + Date.now();
-        const demoOrderObj = {
-          id: createdOrderId,
-          restaurant_id: restaurantId,
-          delivery_address: deliveryAddress,
-          subtotal_cents: subtotalCents,
-          delivery_fee_cents: deliveryFeeCents,
-          discount_cents: discountCents,
-          total_cents: totalCents,
-          platform_fee_cents: platformFeeCents,
-          restaurant_net_cents: restaurantNetCents,
-          status: 'confirmed',
-          payment_method: paymentMethod,
-          payment_status: paymentMethod === 'cash_on_delivery' ? 'pending' : 'paid',
-          change_for_cents: changeForCents,
-          customer_notes: orderNotes,
-          items: items,
-          created_at: new Date().toISOString(),
-        };
+      const createdOrderId = data.orderId;
+
+      // Se for Pix, iniciar cobrança real
+      if (paymentMethod === 'pix') {
         try {
-          localStorage.setItem(`uaifood_order_${createdOrderId}`, JSON.stringify(demoOrderObj));
-        } catch (e) {}
+          await fetch('/api/asaas/payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: createdOrderId }),
+          });
+        } catch (apiErr) {
+          console.error('Asaas API call warning:', apiErr);
+        }
       }
 
       clearCart();
       router.push(`/pedidos/${createdOrderId}`);
 
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao processar o seu pedido. Tente novamente.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao processar o seu pedido. Tente novamente.';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 /**
- * Asaas Integration Utility (Sandbox & Production)
+ * Asaas Integration Utility
  * Documentação: https://docs.asaas.com
  */
 
@@ -13,7 +13,11 @@ export const getAsaasBaseUrl = () => {
 };
 
 export const getAsaasApiKey = () => {
-  return process.env.ASAAS_API_KEY || '';
+  const key = process.env.ASAAS_API_KEY;
+  if (!key && process.env.ASAAS_ENVIRONMENT === 'production') {
+    throw new Error('A variável ASAAS_API_KEY é obrigatória em ambiente de produção.');
+  }
+  return key || '';
 };
 
 /**
@@ -34,8 +38,10 @@ export async function getOrCreateAsaasCustomer({
   const baseUrl = getAsaasBaseUrl();
 
   if (!apiKey) {
-    console.warn('ASAAS_API_KEY não configurada. Usando modo simulador.');
-    return { id: `cus_simulated_${Date.now()}` };
+    if (process.env.NODE_ENV === 'development' || process.env.ASAAS_SIMULATOR === 'true') {
+      return { id: `cus_simulated_${Date.now()}` };
+    }
+    throw new Error('ASAAS_API_KEY não configurada no servidor.');
   }
 
   try {
@@ -49,7 +55,7 @@ export async function getOrCreateAsaasCustomer({
         name,
         cpfCnpj: cpfCnpj ? cpfCnpj.replace(/\D/g, '') : undefined,
         mobilePhone: phone ? phone.replace(/\D/g, '') : undefined,
-        email: email || `${Date.now()}@delivery.temp`,
+        email: email || `${Date.now()}@uaifood.com.br`,
         notificationDisabled: true,
       }),
     });
@@ -58,12 +64,12 @@ export async function getOrCreateAsaasCustomer({
     return data;
   } catch (err) {
     console.error('Erro getOrCreateAsaasCustomer:', err);
-    return { id: `cus_fallback_${Date.now()}` };
+    throw err;
   }
 }
 
 /**
- * Cria uma cobrança Pix no Asaas com split opcional
+ * Cria uma cobrança Pix no Asaas com split
  */
 export async function createAsaasPixPayment({
   customerId,
@@ -83,73 +89,87 @@ export async function createAsaasPixPayment({
   const apiKey = getAsaasApiKey();
   const baseUrl = getAsaasBaseUrl();
 
-  // Configuração do Split caso o restaurante possua walletId cadastrado no Asaas
+  if (!apiKey) {
+    if (process.env.NODE_ENV === 'development' || process.env.ASAAS_SIMULATOR === 'true') {
+      return {
+        id: `pay_sim_${Date.now()}`,
+        value: valueReais,
+        netValue: valueReais - (platformFeeReais || 0),
+        status: 'PENDING',
+        pix: {
+          encodedImage: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+          payload: `00020126580014br.gov.bcb.pix0136uaifood-sandbox-${Date.now()}520400005303986540${valueReais.toFixed(2)}5802BR5907UaiFood6006Passos62070503***6304ABCD`,
+          expirationDate: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        },
+      };
+    }
+    throw new Error('Chave ASAAS_API_KEY ausente.');
+  }
+
+  // Configuração do Split com o estabelecimento
   const splits = [];
   if (restaurantWalletId && platformFeeReais) {
     splits.push({
       walletId: restaurantWalletId,
-      fixedValue: valueReais - platformFeeReais,
+      fixedValue: Number((valueReais - platformFeeReais).toFixed(2)),
     });
   }
 
-  if (!apiKey) {
-    // Retorno simulado realista caso a chave de sandbox ainda não tenha sido inserida
+  const today = new Date().toISOString().split('T')[0];
+
+  const bodyPayload: Record<string, unknown> = {
+    customer: customerId,
+    billingType: 'PIX',
+    value: valueReais,
+    dueDate: today,
+    description,
+    externalReference,
+  };
+
+  if (splits.length > 0) {
+    bodyPayload.split = splits;
+  }
+
+  const res = await fetch(`${baseUrl}/payments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'access_token': apiKey,
+    },
+    body: JSON.stringify(bodyPayload),
+  });
+
+  const payment = await res.json();
+
+  if (payment.id) {
+    // Obter QR Code e payload copia-e-cola oficial do Pix
+    const qrRes = await fetch(`${baseUrl}/payments/${payment.id}/pixQrCode`, {
+      headers: { 'access_token': apiKey },
+    });
+    const qrData = await qrRes.json();
+
     return {
-      id: `pay_sim_${Date.now()}`,
-      value: valueReais,
-      netValue: valueReais - (platformFeeReais || 0),
-      status: 'PENDING',
-      pix: {
-        encodedImage: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', // 1px dummy
-        payload: `00020126580014br.gov.bcb.pix0136central-lanches-sandbox-${Date.now()}520400005303986540${valueReais.toFixed(2)}5802BR5915Central Lanches6009Sao Paulo62070503***6304ABCD`,
-        expirationDate: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-      },
+      ...payment,
+      pix: qrData,
     };
   }
 
-  try {
-    const today = new Date().toISOString().split('T')[0];
+  return payment;
+}
 
-    const bodyPayload: any = {
-      customer: customerId,
-      billingType: 'PIX',
-      value: valueReais,
-      dueDate: today,
-      description,
-      externalReference,
-    };
+/**
+ * Consulta status de pagamento no Asaas diretamente
+ */
+export async function getAsaasPaymentStatus(paymentId: string) {
+  const apiKey = getAsaasApiKey();
+  const baseUrl = getAsaasBaseUrl();
 
-    if (splits.length > 0) {
-      bodyPayload.split = splits;
-    }
+  if (!apiKey) return null;
 
-    const res = await fetch(`${baseUrl}/payments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': apiKey,
-      },
-      body: JSON.stringify(bodyPayload),
-    });
+  const res = await fetch(`${baseUrl}/payments/${paymentId}`, {
+    headers: { 'access_token': apiKey },
+  });
 
-    const payment = await res.json();
-
-    if (payment.id) {
-      // Obter QR Code Pix
-      const qrRes = await fetch(`${baseUrl}/payments/${payment.id}/pixQrCode`, {
-        headers: { 'access_token': apiKey },
-      });
-      const qrData = await qrRes.json();
-
-      return {
-        ...payment,
-        pix: qrData,
-      };
-    }
-
-    return payment;
-  } catch (err) {
-    console.error('Erro createAsaasPixPayment:', err);
-    throw err;
-  }
+  if (!res.ok) return null;
+  return await res.json();
 }

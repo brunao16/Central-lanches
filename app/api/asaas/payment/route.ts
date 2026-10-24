@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 import { getOrCreateAsaasCustomer, createAsaasPixPayment } from '@/lib/asaas';
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
     const body = await req.json();
     const { orderId } = body;
 
@@ -20,6 +23,16 @@ export async function POST(req: Request) {
 
     if (orderErr || !order) {
       return NextResponse.json({ error: 'Pedido não encontrado' }, { status: 404 });
+    }
+
+    // SEGURANÇA: Verificar se o pedido pertence ao usuário autenticado (se logado)
+    if (user && order.customer_id && order.customer_id !== user.id) {
+      return NextResponse.json({ error: 'Acesso negado a este pedido.' }, { status: 403 });
+    }
+
+    // Validar método de pagamento
+    if (order.payment_method !== 'pix') {
+      return NextResponse.json({ error: 'Este pedido não utiliza pagamento via Pix.' }, { status: 400 });
     }
 
     // 2. Criar ou obter cliente no Asaas
@@ -55,8 +68,9 @@ export async function POST(req: Request) {
       pix: payment.pix || null,
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Erro ao gerar pagamento Pix';
     console.error('API /api/asaas/payment error:', err);
-    return NextResponse.json({ error: err.message || 'Erro ao gerar pagamento Pix' }, { status: 500 });
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

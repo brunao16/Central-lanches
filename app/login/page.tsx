@@ -29,7 +29,7 @@ export default function LoginPage() {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, fullName, role }),
+          body: JSON.stringify({ email, password, fullName }),
         });
 
         const data = await res.json();
@@ -58,14 +58,20 @@ export default function LoginPage() {
           throw new Error(data.error || 'E-mail ou senha incorretos');
         }
 
-        if (data.role === 'restaurant_owner') {
+        // Redirecionamento por papel seguro
+        if (data.role === 'admin') {
+          router.push('/admin');
+        } else if (data.role === 'restaurant_owner') {
           router.push('/painel/restaurante');
+        } else if (data.role === 'courier') {
+          router.push('/entregador');
         } else {
           router.push('/');
         }
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Ocorreu um erro ao processar. Tente novamente.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Ocorreu um erro ao processar. Tente novamente.';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }

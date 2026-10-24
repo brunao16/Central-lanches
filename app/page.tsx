@@ -52,66 +52,13 @@ export default function HomePage() {
         ]);
       }
 
-      // Restaurantes com dados de demonstração reais
+      // Restaurantes reais cadastrados e aprovados
       const { data: restData } = await supabase
         .from('restaurants')
         .select('*')
         .eq('status', 'approved');
 
-      if (restData && restData.length > 0) {
-        setRestaurants(restData);
-      } else {
-        setRestaurants([
-          {
-            id: 'a0000000-0000-0000-0000-000000000001',
-            name: 'Uai Burguer & Cia',
-            slug: 'uai-burguer-cia',
-            description: 'Smash burgers com queijo canastra, bacon crocante e maionese temperada da casa.',
-            category_name: 'Lanches',
-            delivery_fee_cents: 400,
-            delivery_time_min: 25,
-            delivery_time_max: 40,
-            is_open: true,
-            status: 'approved',
-            category_id: 'cat-burguer',
-            neighborhood: 'Centro',
-            rating: '4.8',
-            image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
-          },
-          {
-            id: 'a0000000-0000-0000-0000-000000000002',
-            name: 'Pizzaria Bella Fornada',
-            slug: 'pizzaria-bella-fornada',
-            description: 'Massa artesanal de fermentação lenta no forno a lenha, fatiada para viagem.',
-            category_name: 'Pizzas',
-            delivery_fee_cents: 500,
-            delivery_time_min: 35,
-            delivery_time_max: 50,
-            is_open: true,
-            status: 'approved',
-            category_id: 'cat-pizza',
-            neighborhood: 'Belo Horizonte',
-            rating: '4.9',
-            image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80',
-          },
-          {
-            id: 'a0000000-0000-0000-0000-000000000003',
-            name: 'Açaí & Delícias do Vale',
-            slug: 'acai-delicias-do-vale',
-            description: 'Açaí batido na hora com banana, leite em pó e frutas frescas selecionadas.',
-            category_name: 'Açaí & Sobremesas',
-            delivery_fee_cents: 0,
-            delivery_time_min: 20,
-            delivery_time_max: 30,
-            is_open: true,
-            status: 'approved',
-            category_id: 'cat-acai',
-            neighborhood: 'Muamba',
-            rating: '4.7',
-            image_url: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&q=80',
-          },
-        ]);
-      }
+      setRestaurants(restData || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -341,13 +288,15 @@ export default function HomePage() {
                       </span>
                     </div>
 
-                    {/* Nota */}
-                    <div className="absolute top-3 right-3">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-white/95 text-[#1C1917] px-2 py-0.5 rounded-md shadow-xs border border-[#E7E2DA]">
-                        <Star className="w-3 h-3 fill-[#C84B31] text-[#C84B31]" aria-hidden="true" />
-                        <span>{rest.rating || '4.8'}</span>
-                      </span>
-                    </div>
+                    {/* Nota Real (exibe apenas se houver avaliação) */}
+                    {rest.rating && (
+                      <div className="absolute top-3 right-3">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-white/95 text-[#1C1917] px-2 py-0.5 rounded-md shadow-xs border border-[#E7E2DA]">
+                          <Star className="w-3 h-3 fill-[#C84B31] text-[#C84B31]" aria-hidden="true" />
+                          <span>{rest.rating}</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Informações Concretas e Locais */}

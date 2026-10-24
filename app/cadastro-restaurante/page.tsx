@@ -68,41 +68,41 @@ export default function RegisterRestaurantPage() {
       const minCents = Math.round(parseFloat(minOrderReais.replace(',', '.')) * 100) || 2000;
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
 
-      // 3. Cadastrar restaurante
-      const { data, error } = await supabase.from('restaurants').insert([
-        {
-          owner_id: user.id,
-          city_id: cityId || null,
-          category_id: categoryId || null,
+      // 3. Cadastrar restaurante via endpoint seguro do servidor
+      const res = await fetch('/api/restaurant/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name,
           slug,
           cnpj,
           phone,
           description,
-          address_street: street,
-          address_number: number,
-          address_neighborhood: neighborhood,
-          address_city: 'Cidade Padrão',
-          address_state: 'MG',
-          delivery_fee_cents: feeCents,
-          delivery_time_min: Number(deliveryTimeMin),
-          delivery_time_max: Number(deliveryTimeMax),
-          min_order_cents: minCents,
-          commission_rate_percent: 10.00,
-          status: 'approved',
-          is_open: true,
-        },
-      ]).select().single();
+          street,
+          number,
+          neighborhood,
+          city: 'Passos',
+          state: 'MG',
+          deliveryFeeCents: feeCents,
+          deliveryTimeMin: Number(deliveryTimeMin),
+          deliveryTimeMax: Number(deliveryTimeMax),
+          minOrderCents: minCents,
+        }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Erro ao cadastrar o restaurante.');
+      }
 
       setSuccessMsg('Restaurante cadastrado com sucesso! Abrindo o painel...');
       setTimeout(() => {
         router.push('/painel/restaurante');
       }, 1500);
 
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao cadastrar o restaurante. Verifique os dados.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao cadastrar o restaurante. Verifique os dados.';
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
