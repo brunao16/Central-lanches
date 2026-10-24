@@ -57,7 +57,7 @@ export default function HomePage() {
       } else {
         setRestaurants([
           {
-            id: 'rest-demo-1',
+            id: 'a0000000-0000-0000-0000-000000000001',
             name: 'Uai Burguer & Cia',
             slug: 'uai-burguer-cia',
             description: 'Os melhores smash burgers artesanais com muito cheddar cremoso e bacon crocante.',
@@ -69,7 +69,7 @@ export default function HomePage() {
             category_id: 'cat-burguer',
           },
           {
-            id: 'rest-demo-2',
+            id: 'a0000000-0000-0000-0000-000000000002',
             name: 'Pizzaria Bella Fornada',
             slug: 'pizzaria-bella-fornada',
             description: 'Pizzas artesanais assadas no forno a lenha, massa fininha e borda recheada.',
@@ -81,7 +81,7 @@ export default function HomePage() {
             category_id: 'cat-pizza',
           },
           {
-            id: 'rest-demo-3',
+            id: 'a0000000-0000-0000-0000-000000000003',
             name: 'Açaí & Delícias do Vale',
             slug: 'acai-delicias-do-vale',
             description: 'Açaí cremoso batido na hora com mais de 25 adicionais e frutas frescas.',

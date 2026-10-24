@@ -57,7 +57,7 @@ export default function RestaurantStorefrontPage() {
         // Fallback para restaurante modelo de demonstração
         if (slug === 'uai-burguer-cia') {
           setRestaurant({
-            id: 'rest-demo-1',
+            id: 'a0000000-0000-0000-0000-000000000001',
             name: 'Uai Burguer & Cia',
             slug: 'uai-burguer-cia',
             description: 'Os melhores smash burgers artesanais com muito cheddar cremoso e bacon crocante.',
@@ -69,38 +69,38 @@ export default function RestaurantStorefrontPage() {
             phone: '35999998888',
           });
           setCategories([
-            { id: 'cat-lanches', name: 'Hambúrgueres Artesanais' },
-            { id: 'cat-porcoes', name: 'Porções & Acompanhamentos' },
-            { id: 'cat-bebidas', name: 'Bebidas Geladas' },
+            { id: 'b0000000-0000-0000-0000-000000000001', name: 'Hambúrgueres Artesanais' },
+            { id: 'b0000000-0000-0000-0000-000000000002', name: 'Porções & Acompanhamentos' },
+            { id: 'b0000000-0000-0000-0000-000000000003', name: 'Bebidas Geladas' },
           ]);
           setProducts([
             {
-              id: 'prod-1',
-              category_id: 'cat-lanches',
+              id: 'c0000000-0000-0000-0000-000000000001',
+              category_id: 'b0000000-0000-0000-0000-000000000001',
               name: 'Uai Cheddar Bacon Burger',
               description: 'Pão brioche selado na manteiga, blend 180g de carne nobre, cheddar cremoso e fatias de bacon crocante.',
               price_cents: 2890,
               is_available: true,
             },
             {
-              id: 'prod-2',
-              category_id: 'cat-lanches',
+              id: 'c0000000-0000-0000-0000-000000000002',
+              category_id: 'b0000000-0000-0000-0000-000000000001',
               name: 'Smash Duplo da Casa',
               description: 'Dois blends prensados de 90g, queijo prato duplo derretido, cebola chapeada e maionese artesanal.',
               price_cents: 2490,
               is_available: true,
             },
             {
-              id: 'prod-3',
-              category_id: 'cat-porcoes',
+              id: 'c0000000-0000-0000-0000-000000000003',
+              category_id: 'b0000000-0000-0000-0000-000000000002',
               name: 'Batata Rústica com Cheddar e Bacon (400g)',
               description: 'Batata crocante temperada com páprica, coberta com cheddar derretido e cubos de bacon.',
               price_cents: 2600,
               is_available: true,
             },
             {
-              id: 'prod-4',
-              category_id: 'cat-bebidas',
+              id: 'c0000000-0000-0000-0000-000000000004',
+              category_id: 'b0000000-0000-0000-0000-000000000003',
               name: 'Coca-Cola Original 350ml Lata',
               description: 'Refrigerante bem gelado para acompanhar o lanche.',
               price_cents: 600,
