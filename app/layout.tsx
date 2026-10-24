@@ -22,13 +22,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Central Lanches - O Melhor Delivery da Sua Cidade",
-  description: "Peça lanches, pizzas e porções dos melhores estabelecimentos locais.",
+  title: "UaiFood - O Delivery Oficial da Sua Cidade",
+  description: "Peça lanches, pizzas e porções dos melhores restaurantes e lanchonetes locais.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Central Lanches",
+    title: "UaiFood",
   },
 };
 

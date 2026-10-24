@@ -1,6 +1,6 @@
 {
-  "name": "Central Lanches Delivery",
-  "short_name": "Central Lanches",
+  "name": "UaiFood Delivery",
+  "short_name": "UaiFood",
   "description": "Peça lanches, pizzas e porções dos melhores restaurantes da sua cidade.",
   "start_url": "/",
   "display": "standalone",

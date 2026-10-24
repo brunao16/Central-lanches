@@ -78,7 +78,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-2">
             <div className="w-12 h-12 rounded-2xl bg-[#FF3B00] flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-[#FF3B00]/25">
-              C
+              U
             </div>
           </Link>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">
@@ -87,7 +87,7 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500 mt-1">
             {isSignUp
               ? 'Comece a vender ou pedir em sua cidade'
-              : 'Bem-vindo de volta ao Central Lanches'}
+              : 'Bem-vindo de volta ao UaiFood'}
           </p>
         </div>
 

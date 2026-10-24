@@ -19,13 +19,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentCity = 'Passos - MG' }) =
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF3B00] to-[#FF6B3D] flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform">
-              C
+              U
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold text-lg leading-tight tracking-tight text-gray-900">
-                Central <span className="text-[#FF3B00]">Lanches</span>
+                Uai<span className="text-[#FF3B00]">Food</span>
               </span>
-              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Marketplace</span>
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Delivery Regional</span>
             </div>
           </Link>
 

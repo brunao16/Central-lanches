@@ -47,7 +47,7 @@ export function printThermalOrder(order: any, restaurantName: string) {
       <body>
         <div class="text-center">
           <div style="font-size: 16px;" class="bold">${restaurantName.toUpperCase()}</div>
-          <div style="font-size: 11px;">CENTRAL LANCHES DELIVERY</div>
+          <div style="font-size: 11px;">UAIFOOD DELIVERY</div>
         </div>
         <div class="divider"></div>
         <div class="text-center" style="font-size: 18px; font-weight: bold; padding: 4px 0;">
