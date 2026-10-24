@@ -25,55 +25,40 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // Criar conta no Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              role: role,
-            },
-          },
+        // Chamar API interna no servidor
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, fullName, role }),
         });
 
-        if (authError) throw authError;
-
-        if (authData.user) {
-          // Criar registro na tabela profiles
-          await supabase.from('profiles').upsert({
-            id: authData.user.id,
-            email: email,
-            full_name: fullName,
-            role: role,
-          });
-
-          setSuccessMsg('Conta criada com sucesso! Redirecionando...');
-          setTimeout(() => {
-            if (role === 'restaurant_owner') {
-              router.push('/cadastro-restaurante');
-            } else {
-              router.push('/');
-            }
-          }, 1200);
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'Falha ao criar conta');
         }
+
+        setSuccessMsg('Conta criada com sucesso! Redirecionando...');
+        setTimeout(() => {
+          if (role === 'restaurant_owner') {
+            router.push('/cadastro-restaurante');
+          } else {
+            router.push('/');
+          }
+        }, 1200);
       } else {
-        // Login existente
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        // Chamar API interna no servidor
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
         });
 
-        if (error) throw error;
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'E-mail ou senha incorretos');
+        }
 
-        // Buscar perfil do usuário
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profile?.role === 'restaurant_owner') {
+        if (data.role === 'restaurant_owner') {
           router.push('/painel/restaurante');
         } else {
           router.push('/');
