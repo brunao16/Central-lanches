@@ -53,7 +53,66 @@ export default function RestaurantStorefrontPage() {
         .eq('slug', slug)
         .single();
 
-      if (!restData) return;
+      if (!restData) {
+        // Fallback para restaurante modelo de demonstração
+        if (slug === 'uai-burguer-cia') {
+          setRestaurant({
+            id: 'rest-demo-1',
+            name: 'Uai Burguer & Cia',
+            slug: 'uai-burguer-cia',
+            description: 'Os melhores smash burgers artesanais com muito cheddar cremoso e bacon crocante.',
+            delivery_fee_cents: 400,
+            delivery_time_min: 25,
+            delivery_time_max: 45,
+            min_order_cents: 2000,
+            is_open: true,
+            phone: '35999998888',
+          });
+          setCategories([
+            { id: 'cat-lanches', name: 'Hambúrgueres Artesanais' },
+            { id: 'cat-porcoes', name: 'Porções & Acompanhamentos' },
+            { id: 'cat-bebidas', name: 'Bebidas Geladas' },
+          ]);
+          setProducts([
+            {
+              id: 'prod-1',
+              category_id: 'cat-lanches',
+              name: 'Uai Cheddar Bacon Burger',
+              description: 'Pão brioche selado na manteiga, blend 180g de carne nobre, cheddar cremoso e fatias de bacon crocante.',
+              price_cents: 2890,
+              is_available: true,
+            },
+            {
+              id: 'prod-2',
+              category_id: 'cat-lanches',
+              name: 'Smash Duplo da Casa',
+              description: 'Dois blends prensados de 90g, queijo prato duplo derretido, cebola chapeada e maionese artesanal.',
+              price_cents: 2490,
+              is_available: true,
+            },
+            {
+              id: 'prod-3',
+              category_id: 'cat-porcoes',
+              name: 'Batata Rústica com Cheddar e Bacon (400g)',
+              description: 'Batata crocante temperada com páprica, coberta com cheddar derretido e cubos de bacon.',
+              price_cents: 2600,
+              is_available: true,
+            },
+            {
+              id: 'prod-4',
+              category_id: 'cat-bebidas',
+              name: 'Coca-Cola Original 350ml Lata',
+              description: 'Refrigerante bem gelado para acompanhar o lanche.',
+              price_cents: 600,
+              is_available: true,
+            },
+          ]);
+          setLoading(false);
+          return;
+        }
+        return;
+      }
+
       setRestaurant(restData);
 
       const { data: catData } = await supabase

@@ -32,17 +32,68 @@ export default function HomePage() {
     try {
       setLoading(true);
 
-      // 1. Categorias
+      // 1. Categorias com fallback demonstrativo
       const { data: catData } = await supabase.from('restaurant_categories').select('*');
-      setCategories(catData || []);
+      if (catData && catData.length > 0) {
+        setCategories(catData);
+      } else {
+        setCategories([
+          { id: 'cat-burguer', name: 'Hambúrguer' },
+          { id: 'cat-pizza', name: 'Pizza' },
+          { id: 'cat-marmita', name: 'Marmitex' },
+          { id: 'cat-acai', name: 'Açaí' },
+          { id: 'cat-bebidas', name: 'Bebidas' },
+        ]);
+      }
 
-      // 2. Restaurantes
+      // 2. Restaurantes com fallback de demonstração para apresentação comercial
       const { data: restData } = await supabase
         .from('restaurants')
         .select('*')
         .eq('status', 'approved');
 
-      setRestaurants(restData || []);
+      if (restData && restData.length > 0) {
+        setRestaurants(restData);
+      } else {
+        setRestaurants([
+          {
+            id: 'rest-demo-1',
+            name: 'Uai Burguer & Cia',
+            slug: 'uai-burguer-cia',
+            description: 'Os melhores smash burgers artesanais com muito cheddar cremoso e bacon crocante.',
+            delivery_fee_cents: 400,
+            delivery_time_min: 25,
+            delivery_time_max: 45,
+            is_open: true,
+            status: 'approved',
+            category_id: 'cat-burguer',
+          },
+          {
+            id: 'rest-demo-2',
+            name: 'Pizzaria Bella Fornada',
+            slug: 'pizzaria-bella-fornada',
+            description: 'Pizzas artesanais assadas no forno a lenha, massa fininha e borda recheada.',
+            delivery_fee_cents: 500,
+            delivery_time_min: 35,
+            delivery_time_max: 55,
+            is_open: true,
+            status: 'approved',
+            category_id: 'cat-pizza',
+          },
+          {
+            id: 'rest-demo-3',
+            name: 'Açaí & Delícias do Vale',
+            slug: 'acai-delicias-do-vale',
+            description: 'Açaí cremoso batido na hora com mais de 25 adicionais e frutas frescas.',
+            delivery_fee_cents: 0, // Entrega grátis
+            delivery_time_min: 20,
+            delivery_time_max: 35,
+            is_open: true,
+            status: 'approved',
+            category_id: 'cat-acai',
+          },
+        ]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
