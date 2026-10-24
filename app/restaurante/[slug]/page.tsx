@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { useCart } from '@/context/CartContext';
 import { 
   Store, 
@@ -276,24 +277,24 @@ export default function RestaurantStorefrontPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-28">
+    <div className="min-h-screen bg-[#FAF8F5] text-[#1C1917] flex flex-col font-sans pb-28">
       <Navbar />
 
       {/* Header do Restaurante */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="bg-white border-b border-[#E7E2DA]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
           <button
             onClick={() => router.push('/')}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-900 mb-4 cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#57534E] hover:text-[#1C1917] mb-5 transition-colors focus-visible:outline-2 focus-visible:outline-[#C84B31]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Voltar aos restaurantes</span>
+            <span>Voltar para a lista de restaurantes</span>
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-start gap-4">
               {restaurant.image_url ? (
-                <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-md border-2 border-white shrink-0">
+                <div className="w-20 h-20 rounded-xl overflow-hidden border border-[#E7E2DA] shrink-0 bg-[#F3EFEA]">
                   <img
                     src={restaurant.image_url}
                     alt={restaurant.name}
@@ -301,38 +302,44 @@ export default function RestaurantStorefrontPage() {
                   />
                 </div>
               ) : (
-                <div className="w-20 h-20 rounded-3xl bg-[#FFF0EB] text-[#FF3B00] flex items-center justify-center font-black text-3xl shadow-xs shrink-0">
-                  <Store className="w-10 h-10" />
+                <div className="w-20 h-20 rounded-xl bg-[#F3EFEA] text-[#78716C] flex items-center justify-center font-bold text-2xl shrink-0">
+                  <Store className="w-8 h-8" />
                 </div>
               )}
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-black text-gray-900">{restaurant.name}</h1>
-                  <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
-                    restaurant.is_open ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-bold text-[#1C1917] font-[family-name:var(--font-heading)]">
+                    {restaurant.name}
+                  </h1>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                    restaurant.is_open 
+                      ? 'bg-[#EDF7F1] text-[#2A6A4E] border-[#2A6A4E]/20' 
+                      : 'bg-[#F3EFEA] text-[#78716C] border-[#E7E2DA]'
                   }`}>
-                    {restaurant.is_open ? 'Aberto' : 'Fechado'}
+                    {restaurant.is_open ? 'Aberto agora' : 'Fechado no momento'}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1 max-w-lg">{restaurant.description}</p>
+                <p className="text-xs text-[#57534E] max-w-lg leading-relaxed">{restaurant.description}</p>
               </div>
             </div>
 
             {/* Badges de tempo e taxa */}
-            <div className="flex items-center gap-4 bg-gray-50 border border-gray-100 p-3.5 rounded-2xl">
-              <div className="flex flex-col text-center px-3 border-r border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Tempo</span>
-                <span className="text-xs font-black text-gray-800">{restaurant.delivery_time_min}-{restaurant.delivery_time_max} min</span>
+            <div className="flex items-center gap-4 bg-[#FAF8F5] border border-[#E7E2DA] p-3 rounded-xl text-xs">
+              <div className="flex flex-col px-2 border-r border-[#E7E2DA]">
+                <span className="text-[10px] text-[#78716C] uppercase font-semibold">Tempo médio</span>
+                <span className="text-xs font-bold text-[#1C1917] mt-0.5">{restaurant.delivery_time_min}–{restaurant.delivery_time_max} min</span>
               </div>
-              <div className="flex flex-col text-center px-3 border-r border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Entrega</span>
-                <span className="text-xs font-black text-[#FF3B00]">
-                  R$ {(restaurant.delivery_fee_cents / 100).toFixed(2).replace('.', ',')}
+              <div className="flex flex-col px-2 border-r border-[#E7E2DA]">
+                <span className="text-[10px] text-[#78716C] uppercase font-semibold">Entrega</span>
+                <span className="text-xs font-bold text-[#C84B31] mt-0.5">
+                  {restaurant.delivery_fee_cents === 0
+                    ? 'Grátis'
+                    : `R$ ${(restaurant.delivery_fee_cents / 100).toFixed(2).replace('.', ',')}`}
                 </span>
               </div>
-              <div className="flex flex-col text-center px-3">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Pedido Mínimo</span>
-                <span className="text-xs font-black text-gray-800">
+              <div className="flex flex-col px-2">
+                <span className="text-[10px] text-[#78716C] uppercase font-semibold">Pedido Mínimo</span>
+                <span className="text-xs font-bold text-[#1C1917] mt-0.5">
                   R$ {(restaurant.min_order_cents / 100).toFixed(2).replace('.', ',')}
                 </span>
               </div>
@@ -344,8 +351,8 @@ export default function RestaurantStorefrontPage() {
       {/* Cardápio */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full flex-1 space-y-10">
         {categories.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-gray-100">
-            <p className="text-sm text-gray-500">Este restaurante ainda não adicionou pratos no cardápio.</p>
+          <div className="bg-white rounded-xl p-10 text-center border border-[#E7E2DA]">
+            <p className="text-xs text-[#57534E]">Nenhum item disponível no momento neste cardápio.</p>
           </div>
         ) : (
           categories.map((cat) => {
@@ -354,10 +361,12 @@ export default function RestaurantStorefrontPage() {
 
             return (
               <section key={cat.id} className="space-y-4">
-                <h2 className="text-xl font-black text-gray-900 border-b border-gray-200 pb-2 flex items-center justify-between">
-                  <span>{cat.name}</span>
-                  <span className="text-xs font-semibold text-gray-400">{catProducts.length} itens</span>
-                </h2>
+                <div className="border-b border-[#E7E2DA] pb-2 flex items-center justify-between">
+                  <h2 className="text-base font-bold text-[#1C1917] font-[family-name:var(--font-heading)]">
+                    {cat.name}
+                  </h2>
+                  <span className="text-xs text-[#78716C]">{catProducts.length} itens</span>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {catProducts.map((prod) => (
@@ -368,29 +377,33 @@ export default function RestaurantStorefrontPage() {
                         setQuantity(1);
                         setItemNotes('');
                       }}
-                      className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xs hover:border-[#FF3B00]/40 hover:shadow-md transition-all cursor-pointer flex justify-between gap-4"
+                      className="group bg-white p-4 rounded-xl border border-[#E7E2DA] hover:border-[#D6CEC4] transition-all cursor-pointer flex justify-between gap-4 focus-visible:outline-2 focus-visible:outline-[#C84B31]"
                     >
-                      <div className="flex-1">
-                        <h3 className="font-bold text-base text-gray-900 group-hover:text-[#FF3B00] transition-colors">{prod.name}</h3>
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{prod.description}</p>
-                        <span className="inline-block mt-3 font-black text-base text-[#FF3B00]">
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-semibold text-sm text-[#1C1917] group-hover:text-[#C84B31] transition-colors">
+                            {prod.name}
+                          </h3>
+                          <p className="text-xs text-[#57534E] mt-1 line-clamp-2 leading-relaxed">
+                            {prod.description}
+                          </p>
+                        </div>
+                        <span className="mt-3 font-bold text-sm text-[#1C1917]">
                           R$ {(prod.price_cents / 100).toFixed(2).replace('.', ',')}
                         </span>
                       </div>
+
                       {prod.image_url ? (
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 border border-gray-100 shadow-xs relative">
+                        <div className="w-20 h-20 rounded-lg overflow-hidden shrink-0 border border-[#E7E2DA] bg-[#F3EFEA] relative">
                           <img
                             src={prod.image_url}
                             alt={prod.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
-                          <div className="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-[#FF3B00] shadow-xs">
-                            <Plus className="w-4 h-4" />
-                          </div>
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-[#FF3B00] hover:bg-[#FFF0EB] transition-colors shrink-0">
-                          <Plus className="w-5 h-5" />
+                        <div className="w-8 h-8 rounded-md bg-[#F3EFEA] flex items-center justify-center text-[#78716C] group-hover:text-[#C84B31] transition-colors shrink-0">
+                          <Plus className="w-4 h-4" />
                         </div>
                       )}
                     </div>
@@ -404,15 +417,15 @@ export default function RestaurantStorefrontPage() {
 
       {/* Barra Flutuante de Carrinho Global */}
       {cartCount > 0 && (
-        <div className="fixed bottom-4 inset-x-4 max-w-xl mx-auto z-40">
-          <div className="bg-[#FF3B00] text-white p-4 rounded-3xl shadow-xl shadow-[#FF3B00]/30 flex items-center justify-between gap-4">
+        <div className="fixed bottom-4 inset-x-4 max-w-lg mx-auto z-40">
+          <div className="bg-[#1C1917] text-white p-3.5 rounded-xl shadow-lg border border-black/20 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center font-bold text-sm">
+              <span className="w-7 h-7 rounded-md bg-[#C84B31] text-white flex items-center justify-center font-bold text-xs">
                 {cartCount}
-              </div>
+              </span>
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-white/80">Total com entrega</span>
-                <span className="font-black text-lg">
+                <span className="text-[11px] text-[#A8A29E]">Total da sacola</span>
+                <span className="font-bold text-sm">
                   R$ {(totalCents / 100).toFixed(2).replace('.', ',')}
                 </span>
               </div>
@@ -420,9 +433,9 @@ export default function RestaurantStorefrontPage() {
 
             <button
               onClick={() => router.push('/carrinho')}
-              className="px-6 py-2.5 bg-white text-[#FF3B00] font-black text-xs rounded-2xl shadow-sm hover:bg-gray-100 transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#C84B31] hover:bg-[#A83C25] text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
             >
-              Ver Carrinho & Pedir
+              Ver sacola
             </button>
           </div>
         </div>
@@ -430,47 +443,52 @@ export default function RestaurantStorefrontPage() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-4 z-50 bg-gray-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2">
-          <Check className="w-4 h-4 text-green-400" />
+        <div className="fixed top-20 right-4 z-50 bg-[#1C1917] text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-md flex items-center gap-2 border border-white/10">
+          <Check className="w-3.5 h-3.5 text-[#2A6A4E]" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Modal Adicionar ao Carrinho */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-xl font-black text-gray-900 mb-1">{selectedProduct.name}</h3>
-            <p className="text-xs text-gray-500 mb-4">{selectedProduct.description}</p>
-            <div className="text-lg font-black text-[#FF3B00] mb-6">
-              R$ {(selectedProduct.price_cents / 100).toFixed(2).replace('.', ',')}
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#E7E2DA] space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-[#1C1917] font-[family-name:var(--font-heading)]">
+                {selectedProduct.name}
+              </h3>
+              <p className="text-xs text-[#57534E] mt-1 leading-relaxed">{selectedProduct.description}</p>
+              <div className="text-base font-bold text-[#C84B31] mt-2">
+                R$ {(selectedProduct.price_cents / 100).toFixed(2).replace('.', ',')}
+              </div>
             </div>
 
-            <div className="space-y-2 mb-6">
-              <label className="block text-xs font-bold text-gray-700">Observações sobre o pedido</label>
+            <div className="space-y-1.5">
+              <label htmlFor="notes" className="block text-xs font-semibold text-[#1C1917]">Observações para a cozinha</label>
               <textarea
+                id="notes"
                 rows={2}
                 value={itemNotes}
                 onChange={(e) => setItemNotes(e.target.value)}
                 placeholder="Ex: sem cebola, maionese à parte, ponto bem passado..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:border-[#FF3B00] text-xs"
+                className="w-full p-2.5 text-xs bg-[#FAF8F5] border border-[#E7E2DA] rounded-lg focus:outline-hidden focus:border-[#C84B31] text-[#1C1917] placeholder-[#78716C]"
               />
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center border border-gray-200 rounded-2xl p-1 bg-gray-50">
+              <div className="flex items-center border border-[#E7E2DA] rounded-lg p-1 bg-[#FAF8F5]">
                 <button
                   type="button"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-600 hover:bg-white cursor-pointer"
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-[#57534E] hover:text-[#1C1917] cursor-pointer"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
-                <span className="w-10 text-center font-bold text-sm text-gray-900">{quantity}</span>
+                <span className="w-8 text-center font-bold text-xs text-[#1C1917]">{quantity}</span>
                 <button
                   type="button"
                   onClick={() => setQuantity(quantity + 1)}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-600 hover:bg-white cursor-pointer"
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-[#57534E] hover:text-[#1C1917] cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -479,7 +497,7 @@ export default function RestaurantStorefrontPage() {
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="flex-1 py-3.5 bg-[#FF3B00] hover:bg-[#E03400] text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-[#FF3B00]/25 cursor-pointer"
+                className="flex-1 py-2.5 bg-[#C84B31] hover:bg-[#A83C25] text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <span>Adicionar</span>
                 <span>•</span>
@@ -490,13 +508,15 @@ export default function RestaurantStorefrontPage() {
             <button
               type="button"
               onClick={() => setSelectedProduct(null)}
-              className="w-full mt-3 py-2 text-xs font-semibold text-gray-400 hover:text-gray-600 cursor-pointer text-center"
+              className="w-full py-1.5 text-xs font-semibold text-[#78716C] hover:text-[#1C1917] cursor-pointer text-center"
             >
               Cancelar
             </button>
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   );
 }

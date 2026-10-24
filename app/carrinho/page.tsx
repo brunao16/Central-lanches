@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { 
@@ -190,21 +191,23 @@ export default function CartAndCheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-[#FAF8F5] text-[#1C1917] flex flex-col font-sans">
         <Navbar />
-        <div className="max-w-md mx-auto my-auto p-10 text-center bg-white rounded-3xl border border-gray-100 shadow-xs">
-          <div className="w-16 h-16 rounded-2xl bg-[#FFF0EB] text-[#FF3B00] flex items-center justify-center mx-auto mb-4">
-            <ShoppingBag className="w-8 h-8" />
+        <div className="max-w-md mx-auto my-auto p-8 text-center bg-white rounded-xl border border-[#E7E2DA]">
+          <div className="w-12 h-12 rounded-lg bg-[#F3EFEA] text-[#78716C] flex items-center justify-center mx-auto mb-4">
+            <ShoppingBag className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-black text-gray-900">Seu carrinho está vazio</h2>
-          <p className="text-xs text-gray-500 mt-2 mb-6">
-            Adicione pratos de um restaurante para continuar com a compra.
+          <h2 className="text-lg font-bold text-[#1C1917] font-[family-name:var(--font-heading)]">
+            Sua sacola está vazia
+          </h2>
+          <p className="text-xs text-[#57534E] mt-1 mb-6 leading-relaxed">
+            Escolha itens de um restaurante ou lanchonete de Passos para continuar.
           </p>
           <Link
             href="/"
-            className="inline-flex px-6 py-3 bg-[#FF3B00] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer hover:bg-[#E03400] transition-colors"
+            className="inline-flex px-5 py-2.5 bg-[#1C1917] hover:bg-[#C84B31] text-white font-semibold text-xs rounded-lg transition-colors"
           >
-            Explorar Restaurantes
+            Ver restaurantes
           </Link>
         </div>
       </div>
@@ -212,17 +215,17 @@ export default function CartAndCheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-16">
+    <div className="min-h-screen bg-[#FAF8F5] text-[#1C1917] flex flex-col font-sans pb-16">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
-        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-6">
-          Finalizar Pedido
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 w-full flex-1">
+        <h1 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight mb-6 font-[family-name:var(--font-heading)]">
+          Finalizar pedido
         </h1>
 
         {errorMsg && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 flex items-center gap-3 text-red-700 text-sm">
-            <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
+          <div className="mb-6 p-3.5 rounded-lg bg-[#FDF2F2] border border-[#F8B4B4] flex items-center gap-3 text-[#9B1C1C] text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#E02424]" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -231,22 +234,22 @@ export default function CartAndCheckoutPage() {
           {/* Dados do Cliente e Endereço */}
           <div className="lg:col-span-7 space-y-6">
             {/* Contato */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-xs space-y-4">
-              <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3">
-                <span className="w-6 h-6 rounded-lg bg-[#FFF0EB] text-[#FF3B00] flex items-center justify-center text-xs">1</span>
-                <span>Seus Dados de Contato</span>
+            <div className="bg-white rounded-xl p-5 border border-[#E7E2DA] space-y-4">
+              <h2 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider flex items-center gap-2 border-b border-[#E7E2DA] pb-3">
+                <span className="w-5 h-5 rounded-md bg-[#FAF8F5] border border-[#E7E2DA] text-[#1C1917] flex items-center justify-center text-[11px] font-bold">1</span>
+                <span>Seus dados de contato</span>
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Seu Nome Completo</label>
+                  <label className="block text-xs font-semibold text-[#1C1917] mb-1">Nome completo</label>
                   <input
                     type="text"
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="João da Silva"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-hidden focus:border-[#FF3B00] text-sm"
+                    placeholder="Seu nome"
+                    className="w-full px-3 py-2 rounded-lg border border-[#E7E2DA] focus:outline-hidden focus:border-[#C84B31] text-xs bg-[#FAF8F5]"
                   />
                 </div>
 
@@ -549,9 +552,9 @@ export default function CartAndCheckoutPage() {
                 <span>Taxa de Entrega</span>
                 <span>R$ {(deliveryFeeCents / 100).toFixed(2).replace('.', ',')}</span>
               </div>
-              <div className="flex justify-between text-base font-black text-gray-900 pt-2 border-t border-gray-100">
+              <div className="flex justify-between text-base font-bold text-[#1C1917] pt-2 border-t border-[#E7E2DA]">
                 <span>Total</span>
-                <span className="text-xl text-[#FF3B00]">
+                <span className="text-lg text-[#C84B31]">
                   R$ {(totalCents / 100).toFixed(2).replace('.', ',')}
                 </span>
               </div>
@@ -560,22 +563,24 @@ export default function CartAndCheckoutPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-[#FF3B00] hover:bg-[#E03400] text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-[#FF3B00]/25 transition-all cursor-pointer disabled:opacity-60"
+              className="w-full py-3 bg-[#C84B31] hover:bg-[#A83C25] text-white font-semibold text-xs rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-[#C84B31]"
             >
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
                   <span>
-                    {paymentMethod === 'pix' ? 'Gerar Pix e Fazer Pedido' : 'Confirmar e Fazer Pedido'}
+                    {paymentMethod === 'pix' ? 'Gerar código Pix para pagamento' : 'Confirmar pedido para entrega'}
                   </span>
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </div>
         </form>
       </main>
+
+      <Footer />
     </div>
   );
 }
