@@ -69,6 +69,9 @@ export default function RegisterRestaurantPage() {
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
 
       // 3. Cadastrar restaurante via endpoint seguro do servidor
+      const selectedCityObj = cities.find(c => c.id === cityId);
+      const chosenCityName = selectedCityObj?.name || 'Minas Gerais';
+
       const res = await fetch('/api/restaurant/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +84,7 @@ export default function RegisterRestaurantPage() {
           street,
           number,
           neighborhood,
-          city: 'Passos',
+          city: chosenCityName,
           state: 'MG',
           deliveryFeeCents: feeCents,
           deliveryTimeMin: Number(deliveryTimeMin),

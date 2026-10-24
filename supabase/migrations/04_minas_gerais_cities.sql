@@ -1,0 +1,47 @@
+-- ==============================================================================
+-- CIDADES DE MINAS GERAIS PARA ATUAÇÃO ESTADUAL
+-- ==============================================================================
+
+INSERT INTO public.cities (name, state, slug, active)
+VALUES 
+    ('Belo Horizonte', 'MG', 'belo-horizonte-mg', true),
+    ('Uberlândia', 'MG', 'uberlandia-mg', true),
+    ('Contagem', 'MG', 'contagem-mg', true),
+    ('Juiz de Fora', 'MG', 'juiz-de-fora-mg', true),
+    ('Betim', 'MG', 'betim-mg', true),
+    ('Montes Claros', 'MG', 'montes-claros-mg', true),
+    ('Ribeirão das Neves', 'MG', 'ribeirao-das-neves-mg', true),
+    ('Uberaba', 'MG', 'uberaba-mg', true),
+    ('Governador Valadares', 'MG', 'governador-valadares-mg', true),
+    ('Ipatinga', 'MG', 'ipatinga-mg', true),
+    ('Sete Lagoas', 'MG', 'sete-lagoas-mg', true),
+    ('Divinópolis', 'MG', 'divinopolis-mg', true),
+    ('Santa Luzia', 'MG', 'santa-luzia-mg', true),
+    ('Ibirité', 'MG', 'ibirite-mg', true),
+    ('Poços de Caldas', 'MG', 'pocos-de-caldas-mg', true),
+    ('Patos de Minas', 'MG', 'patos-de-minas-mg', true),
+    ('Pouso Alegre', 'MG', 'pouso-alegre-mg', true),
+    ('Teófilo Otoni', 'MG', 'teofilo-otoni-mg', true),
+    ('Varginha', 'MG', 'varginha-mg', true),
+    ('Conselheiro Lafaiete', 'MG', 'conselheiro-lafaiete-mg', true),
+    ('Sabará', 'MG', 'sabara-mg', true),
+    ('Araguari', 'MG', 'araguari-mg', true),
+    ('Itabira', 'MG', 'itabira-mg', true),
+    ('Passos', 'MG', 'passos-mg', true),
+    ('Lavras', 'MG', 'lavras-mg', true),
+    ('Nova Serrana', 'MG', 'nova-serrana-mg', true),
+    ('Ituiutaba', 'MG', 'ituiutaba-mg', true),
+    ('Muriaé', 'MG', 'muriae-mg', true),
+    ('Itaúna', 'MG', 'itauna-mg', true),
+    ('Caratinga', 'MG', 'caratinga-mg', true),
+    ('São João del-Rei', 'MG', 'sao-joao-del-rei-mg', true),
+    ('Alfenas', 'MG', 'alfenas-mg', true),
+    ('Formiga', 'MG', 'formiga-mg', true),
+    ('São Sebastião do Paraíso', 'MG', 'sao-sebastiao-do-paraiso-mg', true),
+    ('Piumhi', 'MG', 'piumhi-mg', true),
+    ('Guaxupé', 'MG', 'guaxupe-mg', true),
+    ('Ouro Preto', 'MG', 'ouro-preto-mg', true),
+    ('Mariana', 'MG', 'mariana-mg', true),
+    ('Três Corações', 'MG', 'tres-coracoes-mg', true),
+    ('Itajubá', 'MG', 'itajuba-mg', true)
+ON CONFLICT (slug) DO NOTHING;

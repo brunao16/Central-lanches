@@ -9,7 +9,7 @@ interface NavbarProps {
   currentCity?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentCity = 'Passos, MG' }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentCity = 'Minas Gerais, MG' }) => {
   const { cartCount, subtotalCents } = useCart();
 
   return (

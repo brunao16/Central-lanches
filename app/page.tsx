@@ -115,7 +115,7 @@ export default function HomePage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por lanchonete, pizza ou prato em Passos..."
+                placeholder="Buscar por lanchonete, restaurante, pizza ou sua cidade em MG..."
                 className="w-full px-3 py-2.5 text-sm bg-transparent text-[#1C1917] placeholder-[#78716C] focus:outline-hidden"
               />
               {searchTerm && (
