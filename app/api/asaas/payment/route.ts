@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
     // 2. Criar ou obter cliente no Asaas
     const customer = await getOrCreateAsaasCustomer({
-      name: order.delivery_address?.name || 'Cliente Central Lanches',
+      name: order.delivery_address?.name || 'Cliente UaiFood',
       phone: order.delivery_address?.phone,
     });
 

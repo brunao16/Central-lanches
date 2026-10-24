@@ -386,7 +386,7 @@ export default function RestaurantDashboardPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => printThermalOrder(o, restaurant?.name || 'Central Lanches')}
+                          onClick={() => printThermalOrder(o, restaurant?.name || 'UaiFood')}
                           className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[11px] font-bold cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5" />

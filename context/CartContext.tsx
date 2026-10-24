@@ -46,7 +46,8 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 // Cupons padrão da plataforma
 const AVAILABLE_COUPONS: Coupon[] = [
   { code: 'BEMVINDO10', discountType: 'percentage', discountValue: 10, minOrderCents: 2000 },
-  { code: 'CENTRAL5', discountType: 'fixed', discountValue: 500, minOrderCents: 2500 },
+  { code: 'UAI5', discountType: 'fixed', discountValue: 500, minOrderCents: 2500 },
+  { code: 'CENTRAL5', discountType: 'fixed', discountValue: 500, minOrderCents: 2500 }, // compatibilidade
   { code: 'PRIMEIRACOMPRA', discountType: 'percentage', discountValue: 15, minOrderCents: 3000 },
 ];
 
@@ -56,9 +57,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('@central_lanches_cart');
+      const saved = localStorage.getItem('@uaifood_cart') || localStorage.getItem('@central_lanches_cart');
       if (saved) setItems(JSON.parse(saved));
-      const savedCoupon = localStorage.getItem('@central_lanches_coupon');
+      const savedCoupon = localStorage.getItem('@uaifood_coupon') || localStorage.getItem('@central_lanches_coupon');
       if (savedCoupon) setAppliedCoupon(JSON.parse(savedCoupon));
     } catch (e) {
       console.error(e);
@@ -67,11 +68,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('@central_lanches_cart', JSON.stringify(items));
+      localStorage.setItem('@uaifood_cart', JSON.stringify(items));
       if (appliedCoupon) {
-        localStorage.setItem('@central_lanches_coupon', JSON.stringify(appliedCoupon));
+        localStorage.setItem('@uaifood_coupon', JSON.stringify(appliedCoupon));
       } else {
-        localStorage.removeItem('@central_lanches_coupon');
+        localStorage.removeItem('@uaifood_coupon');
       }
     } catch (e) {
       console.error(e);

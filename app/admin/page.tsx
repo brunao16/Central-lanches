@@ -145,7 +145,7 @@ export default function AdminDashboardPage() {
               R$ {(totalProfitCents / 100).toFixed(2).replace('.', ',')}
             </span>
             <span className="text-[11px] text-gray-400 mt-2 block">
-              Comissão Central Lanches
+              Comissão UaiFood
             </span>
           </div>
 

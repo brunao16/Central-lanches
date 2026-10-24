@@ -31,7 +31,7 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-base font-bold text-gray-900">1. Objeto da Plataforma</h2>
             <p>
-              O <strong>Central Lanches</strong> é uma plataforma tecnológica de intermediação que conecta consumidores a estabelecimentos gastronômicos locais (restaurantes, lanchonetes e pizzarias). A plataforma atua facilitando a exibição de cardápios, o recebimento de pedidos e a liquidação dos pagamentos.
+              O <strong>UaiFood</strong> é uma plataforma tecnológica de intermediação que conecta consumidores a estabelecimentos gastronômicos locais (restaurantes, lanchonetes e pizzarias). A plataforma atua facilitando a exibição de cardápios, o recebimento de pedidos e a liquidação dos pagamentos.
             </p>
           </section>
 
