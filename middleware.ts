@@ -2,19 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const adminPin = process.env.ADMIN_PIN?.trim();
 
-  // Se não houver ADMIN_PIN configurado, tudo abre livremente
-  if (!adminPin) {
-    return NextResponse.next();
-  }
-
-  // Rotas públicas que NUNCA exigem PIN
+  // Rotas públicas que NUNCA exigem login
   const isPublicRoute =
+    pathname === "/login" ||
     pathname.startsWith("/menu") ||
     pathname.startsWith("/pedido") ||
-    pathname === "/pin" ||
+    pathname === "/motoboy" ||
     pathname.startsWith("/api/public") ||
+    pathname.startsWith("/api/auth/login") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/favicon.svg" ||
@@ -25,23 +21,23 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Checa cookie de PIN autorizado
-  const authPinCookie = req.cookies.get("admin_pin_auth")?.value;
-  if (authPinCookie === adminPin) {
+  // Checa se tem o cookie de autenticação do login
+  const authCookie = req.cookies.get("admin_session_auth")?.value;
+  if (authCookie === "central_authenticated_token_2026") {
     return NextResponse.next();
   }
 
-  // Se for chamada de API administrativa sem PIN
+  // Se for chamada de API administrativa sem autenticação
   if (pathname.startsWith("/api/")) {
     return NextResponse.json(
-      { error: "PIN administrativo exigido ou incorreto." },
+      { error: "Autenticação exigida. Faça login em /login." },
       { status: 401 }
     );
   }
 
-  // Redireciona para tela simples de PIN informando o retorno
+  // Redireciona para tela de Login informando a rota original
   const url = req.nextUrl.clone();
-  url.pathname = "/pin";
+  url.pathname = "/login";
   url.searchParams.set("from", pathname);
   return NextResponse.redirect(url);
 }
