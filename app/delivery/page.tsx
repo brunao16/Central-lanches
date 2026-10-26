@@ -88,6 +88,12 @@ export default function DeliveryPage() {
               ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`
               : "#";
 
+            const waMsgPreparo = `Olá, ${order.customerName || "Cliente"}! Seu pedido #${order.code} da Central Lanches está sendo preparado na chapa com capricho! 🍔🍟`;
+            const waLinkPreparo = order.customerPhone ? createWhatsAppLink(order.customerPhone, waMsgPreparo) : "#";
+
+            const waMsgSaiu = `Olá, ${order.customerName || "Cliente"}! Seu pedido #${order.code} acabou de sair para entrega com nosso motoboy! 🛵💨`;
+            const waLinkSaiu = order.customerPhone ? createWhatsAppLink(order.customerPhone, waMsgSaiu) : "#";
+
             const waMsgChegando = `Olá, ${order.customerName || "Cliente"}! Sou o entregador da Central Lanches 🛵, acabei de chegar no seu endereço com o pedido #${order.code}!`;
             const waLinkChegando = order.customerPhone ? createWhatsAppLink(order.customerPhone, waMsgChegando) : "#";
 
@@ -165,15 +171,28 @@ export default function DeliveryPage() {
 
                 <div className="space-y-2 pt-2 border-t border-gray-100">
                   {order.customerPhone && (
-                    <a
-                      href={waLinkChegando}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <Send size={14} />
-                      <span>Avisar: &quot;Cheguei no Portão!&quot;</span>
-                    </a>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <a
+                        href={waLinkSaiu}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center justify-center gap-1 transition-all"
+                        title="Avisar cliente que saiu para entrega"
+                      >
+                        <Send size={12} />
+                        <span>Zap: Saiu p/ Entrega</span>
+                      </a>
+                      <a
+                        href={waLinkChegando}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center gap-1 transition-all"
+                        title="Avisar cliente que o motoboy chegou no portão"
+                      >
+                        <Send size={12} />
+                        <span>Zap: Cheguei!</span>
+                      </a>
+                    </div>
                   )}
 
                   <div className="flex gap-2">

@@ -14,6 +14,8 @@ import {
   Unlock,
   AlertCircle,
   ShoppingBag,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from "lucide-react";
 import { printReceipt } from "@/lib/print";
 
@@ -39,6 +41,10 @@ export default function CaixaPage() {
   const [initialAmount, setInitialAmount] = useState("100,00");
   const [closeModal, setCloseModal] = useState(false);
   const [finalAmount, setFinalAmount] = useState("");
+  const [bleedModal, setBleedModal] = useState(false);
+  const [supplyModal, setSupplyModal] = useState(false);
+  const [movementAmount, setMovementAmount] = useState("");
+  const [movementReason, setMovementReason] = useState("");
 
   // Dados do pedido no PDV
   const [orderType, setOrderType] = useState<"BALCAO" | "MESA" | "DELIVERY" | "RETIRADA">("BALCAO");
@@ -234,6 +240,62 @@ export default function CaixaPage() {
     }
   }
 
+  // Sangria de Caixa (retirada)
+  async function handleBleed() {
+    const cents = parseCurrencyToCents(movementAmount);
+    if (!cents || cents <= 0) return alert("Informe um valor válido.");
+    if (!movementReason.trim()) return alert("Informe o motivo da sangria.");
+
+    try {
+      const res = await fetch("/api/cash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "bleed",
+          amount: cents,
+          description: movementReason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert("Sangria registrada com sucesso!");
+      setBleedModal(false);
+      setMovementAmount("");
+      setMovementReason("");
+      loadData();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  // Suprimento de Caixa (entrada)
+  async function handleSupply() {
+    const cents = parseCurrencyToCents(movementAmount);
+    if (!cents || cents <= 0) return alert("Informe um valor válido.");
+    if (!movementReason.trim()) return alert("Informe o motivo do suprimento.");
+
+    try {
+      const res = await fetch("/api/cash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "supply",
+          amount: cents,
+          description: movementReason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert("Suprimento registrado com sucesso!");
+      setSupplyModal(false);
+      setMovementAmount("");
+      setMovementReason("");
+      loadData();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
   const filteredProducts = products.filter((p) => {
     const matchesCat = selectedCategory === "all" || p.categoryId === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -263,14 +325,32 @@ export default function CaixaPage() {
               </div>
             </div>
 
-            <div>
+            <div className="flex items-center gap-2 flex-wrap">
               {register ? (
-                <button
-                  onClick={() => setCloseModal(true)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl border border-red-200 text-red-600 hover:bg-red-50 active:scale-95 transition-all"
-                >
-                  Fechar Caixa
-                </button>
+                <>
+                  <button
+                    onClick={() => setSupplyModal(true)}
+                    className="px-3 py-2 text-xs font-bold rounded-xl border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 active:scale-95 transition-all flex items-center gap-1.5"
+                    title="Entrada de troco ou valor extra"
+                  >
+                    <ArrowDownCircle size={15} />
+                    Suprimento
+                  </button>
+                  <button
+                    onClick={() => setBleedModal(true)}
+                    className="px-3 py-2 text-xs font-bold rounded-xl border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 active:scale-95 transition-all flex items-center gap-1.5"
+                    title="Retirada de dinheiro da gaveta"
+                  >
+                    <ArrowUpCircle size={15} />
+                    Sangria
+                  </button>
+                  <button
+                    onClick={() => setCloseModal(true)}
+                    className="px-3.5 py-2 text-xs font-bold rounded-xl border border-red-200 text-red-600 hover:bg-red-50 active:scale-95 transition-all"
+                  >
+                    Fechar Caixa
+                  </button>
+                </>
               ) : (
                 <button
                   onClick={() => setOpenModal(true)}
@@ -624,6 +704,115 @@ export default function CaixaPage() {
                 className="flex-1 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm"
               >
                 Fechar Caixa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Sangria de Caixa */}
+      {bleedModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-center gap-2.5 text-amber-600 font-extrabold text-lg">
+              <ArrowUpCircle size={22} />
+              <h3>Sangria de Caixa (Saída)</h3>
+            </div>
+            <p className="text-xs text-gray-500">
+              Retirada de dinheiro da gaveta para despesas, fornecedores ou recolhimento.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-700">Valor (R$)</label>
+                <input
+                  type="text"
+                  value={movementAmount}
+                  onChange={(e) => setMovementAmount(e.target.value)}
+                  placeholder="Ex: 50,00"
+                  className="w-full text-lg font-black mt-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-700">Motivo / Descrição</label>
+                <input
+                  type="text"
+                  value={movementReason}
+                  onChange={(e) => setMovementReason(e.target.value)}
+                  placeholder="Ex: Pagamento do gás / Entrega"
+                  className="w-full text-xs font-medium mt-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setBleedModal(false);
+                  setMovementAmount("");
+                  setMovementReason("");
+                }}
+                className="flex-1 py-2.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleBleed}
+                className="flex-1 py-2.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-sm"
+              >
+                Confirmar Sangria
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Suprimento de Caixa */}
+      {supplyModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-center gap-2.5 text-emerald-600 font-extrabold text-lg">
+              <ArrowDownCircle size={22} />
+              <h3>Suprimento de Caixa (Entrada)</h3>
+            </div>
+            <p className="text-xs text-gray-500">
+              Entrada de dinheiro para reforço de troco ou caixa.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-700">Valor (R$)</label>
+                <input
+                  type="text"
+                  value={movementAmount}
+                  onChange={(e) => setMovementAmount(e.target.value)}
+                  placeholder="Ex: 100,00"
+                  className="w-full text-lg font-black mt-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-700">Motivo / Descrição</label>
+                <input
+                  type="text"
+                  value={movementReason}
+                  onChange={(e) => setMovementReason(e.target.value)}
+                  placeholder="Ex: Moedas e notas de R$ 2 e R$ 5"
+                  className="w-full text-xs font-medium mt-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setSupplyModal(false);
+                  setMovementAmount("");
+                  setMovementReason("");
+                }}
+                className="flex-1 py-2.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSupply}
+                className="flex-1 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm"
+              >
+                Confirmar Suprimento
               </button>
             </div>
           </div>

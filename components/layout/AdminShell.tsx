@@ -72,8 +72,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           })}
         </div>
 
-        {/* Link rápido para o cardápio público do cliente */}
-        <div className="p-4 border-t border-gray-100">
+        {/* Links rápidos externos */}
+        <div className="p-4 border-t border-gray-100 space-y-1.5">
+          <a
+            href="/motoboy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors border border-gray-200"
+          >
+            <span className="flex items-center gap-2">
+              🛵 Painel do Motoboy
+            </span>
+            <ExternalLink size={14} />
+          </a>
           <a
             href="/menu"
             target="_blank"
