@@ -58,6 +58,11 @@ export default function PublicMenuPage() {
   const [submitting, setSubmitting] = useState(false);
   const [finishedOrder, setFinishedOrder] = useState<any>(null);
 
+  // Cupom de Desconto
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountCents: number; description: string } | null>(null);
+  const [couponError, setCouponError] = useState("");
+
   // Pix QR Code
   const [pixPayload, setPixPayload] = useState("");
   const [pixQrImage, setPixQrImage] = useState("");
@@ -157,7 +162,36 @@ export default function PublicMenuPage() {
   const cartList = Object.values(cart);
   const subtotal = cartList.reduce((acc, c) => acc + c.item.price * c.qty, 0);
   const deliveryFee = orderType === "DELIVERY" ? (selectedZone?.fee || setting?.deliveryFee || 500) : 0;
-  const total = subtotal + deliveryFee;
+  const discountAmount = appliedCoupon ? Math.min(subtotal, appliedCoupon.discountCents) : 0;
+  const total = Math.max(0, subtotal - discountAmount + deliveryFee);
+
+  function applyCoupon() {
+    setCouponError("");
+    const clean = couponCode.trim().toUpperCase();
+    if (!clean) return;
+
+    if (clean === "PRIMEIRACOMPRA" || clean === "PRIMEIRO10") {
+      setAppliedCoupon({
+        code: clean,
+        discountCents: 1000, // R$ 10,00 OFF
+        description: "R$ 10,00 OFF na Primeira Compra",
+      });
+    } else if (clean === "CENTRAL5" || clean === "LANCHE5") {
+      setAppliedCoupon({
+        code: clean,
+        discountCents: 500, // R$ 5,00 OFF
+        description: "R$ 5,00 OFF no pedido",
+      });
+    } else if (clean === "FRETEGRATIS") {
+      setAppliedCoupon({
+        code: clean,
+        discountCents: deliveryFee,
+        description: "Frete Grátis aplicado",
+      });
+    } else {
+      setCouponError("Cupom inválido ou expirado.");
+    }
+  }
 
   async function handleSendOrder(e: React.FormEvent) {
     e.preventDefault();
@@ -180,6 +214,7 @@ export default function PublicMenuPage() {
           customerPhone,
           deliveryAddress: orderType === "DELIVERY" ? deliveryAddress : undefined,
           deliveryFee,
+          discount: discountAmount,
           paymentMethod,
           amountReceived: paymentMethod === "DINHEIRO" && changeFor ? parseCurrencyToCents(changeFor) : undefined,
           items: cartList.map((c) => ({
@@ -710,11 +745,60 @@ export default function PublicMenuPage() {
                   </div>
                 )}
 
+                {/* Campo de Cupom de Desconto */}
+                <div className="pt-2 border-t border-gray-800 space-y-1.5">
+                  <label className="font-bold text-gray-300 block text-xs">Tem um Cupom de Desconto?</label>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl">
+                      <div>
+                        <div className="font-black text-emerald-400 text-xs tracking-wider">
+                          ✓ {appliedCoupon.code}
+                        </div>
+                        <div className="text-[11px] text-gray-400">{appliedCoupon.description}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAppliedCoupon(null);
+                          setCouponCode("");
+                        }}
+                        className="text-[11px] text-red-400 hover:text-red-300 font-bold px-2 py-1"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Ex: PRIMEIRACOMPRA ou CENTRAL5"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="flex-1 px-3 py-2 bg-[#1b2029] border border-gray-800 rounded-xl focus:outline-none focus:border-red-500 text-white uppercase font-bold text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={applyCoupon}
+                        className="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-xs active:scale-95 transition-all"
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  )}
+                  {couponError && <p className="text-[11px] text-red-400 font-semibold">{couponError}</p>}
+                </div>
+
                 <div className="pt-2 border-t border-gray-800 space-y-1">
                   <div className="flex justify-between text-gray-400">
                     <span>Subtotal:</span>
                     <span>{formatCurrency(subtotal)}</span>
                   </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-400 font-bold">
+                      <span>Desconto ({appliedCoupon?.code}):</span>
+                      <span>-{formatCurrency(discountAmount)}</span>
+                    </div>
+                  )}
                   {orderType === "DELIVERY" && (
                     <div className="flex justify-between text-gray-400">
                       <span>Taxa de entrega:</span>
