@@ -12,6 +12,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   RefreshCw,
+  Trash2,
+  AlertOctagon,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -26,6 +28,9 @@ import {
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<"day" | "week" | "month">("day");
+  const [clearing, setClearing] = useState(false);
 
   async function loadData() {
     setLoading(true);
@@ -44,6 +49,47 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
+  async function handleClearHistory() {
+    const periodLabel =
+      selectedPeriod === "day"
+        ? "DE HOJE"
+        : selectedPeriod === "week"
+        ? "DESTA SEMANA"
+        : "DESTE MÊS";
+
+    if (
+      !confirm(
+        `Tem certeza que deseja apagar o histórico ${periodLabel}? Esta ação não pode ser desfeita.`
+      )
+    ) {
+      return;
+    }
+
+    setClearing(true);
+    try {
+      const res = await fetch("/api/orders/clear-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: selectedPeriod }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Falha ao apagar histórico");
+      }
+
+      alert(
+        `Histórico ${periodLabel} apagado com sucesso!\n• Pedidos removidos: ${data.deletedOrdersCount}\n• Movimentações de caixa: ${data.deletedMovementsCount}\n• Despesas removidas: ${data.deletedExpensesCount}`
+      );
+      setClearModalOpen(false);
+      loadData();
+    } catch (e: any) {
+      alert(e.message || "Erro ao apagar histórico.");
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <AdminShell>
       <div className="p-4 md:p-8 space-y-6 max-w-7xl">
@@ -53,15 +99,111 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-black text-gray-900 tracking-tight">Painel Geral</h1>
             <p className="text-sm text-gray-500">Métricas em tempo real do caixa, pedidos e vendas</p>
           </div>
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm self-start sm:self-auto"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin text-primary" : ""} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setClearModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 active:scale-95 transition-all shadow-xs"
+              title="Apagar histórico de vendas, caixa e despesas por período"
+            >
+              <Trash2 size={15} />
+              Apagar Histórico
+            </button>
+            <button
+              onClick={loadData}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin text-primary" : ""} />
+              Atualizar
+            </button>
+          </div>
         </div>
+
+        {/* Modal de Limpeza de Histórico */}
+        {clearModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="p-2.5 bg-red-100 rounded-xl">
+                  <AlertOctagon size={22} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-base leading-tight">
+                    Apagar Histórico
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Limpeza de pedidos, movimentações de caixa e despesas
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 font-medium">
+                ⚠️ <strong>Atenção:</strong> Esta ação apagará permanentemente os registros do período selecionado.
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-700 block">
+                  Escolha o período que deseja apagar:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPeriod("day")}
+                    className={`py-3 px-2 rounded-xl border text-xs font-extrabold transition-all ${
+                      selectedPeriod === "day"
+                        ? "bg-red-600 text-white border-red-600 shadow-sm"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPeriod("week")}
+                    className={`py-3 px-2 rounded-xl border text-xs font-extrabold transition-all ${
+                      selectedPeriod === "week"
+                        ? "bg-red-600 text-white border-red-600 shadow-sm"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    Esta Semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPeriod("month")}
+                    className={`py-3 px-2 rounded-xl border text-xs font-extrabold transition-all ${
+                      selectedPeriod === "month"
+                        ? "bg-red-600 text-white border-red-600 shadow-sm"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    Este Mês
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  disabled={clearing}
+                  onClick={() => setClearModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={clearing}
+                  onClick={handleClearHistory}
+                  className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:scale-95 rounded-xl transition-all shadow-md shadow-red-200 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Trash2 size={14} />
+                  {clearing ? "Apagando..." : "Confirmar Exclusão"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Alertas */}
         {metrics?.alerts && (metrics.alerts.lowStockCount > 0 || metrics.alerts.delayedOrdersCount > 0) && (
