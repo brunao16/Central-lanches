@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import AdminShell from "@/components/layout/AdminShell";
 import { formatCurrency, parseCurrencyToCents } from "@/lib/utils";
 import {
@@ -16,8 +16,11 @@ import {
   ShoppingBag,
   ArrowDownCircle,
   ArrowUpCircle,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { printReceipt, printRegisterCloseReceipt } from "@/lib/print";
+import { playContinuousAlertSound, stopContinuousAlertSound } from "@/lib/sound";
 
 interface CartItem {
   id: string;
@@ -56,7 +59,34 @@ export default function CaixaPage() {
   const [amountReceived, setAmountReceived] = useState("");
   const [discount, setDiscount] = useState("0,00");
   const [orderNotes, setOrderNotes] = useState("");
-  const [lastFinishedOrder, setLastFinishedOrder] = useState<any>(null);
+  const [newOrdersAlert, setNewOrdersAlert] = useState<any[]>([]);
+  const prevOrdersCountRef = useRef<number>(0);
+  const isFirstLoadRef = useRef(true);
+
+  async function checkIncomingOrders() {
+    try {
+      const res = await fetch("/api/orders?status=NOVO&limit=10");
+      const data = await res.json();
+      const novos = data.orders || [];
+
+      if (!isFirstLoadRef.current && novos.length > prevOrdersCountRef.current) {
+        playContinuousAlertSound();
+        setNewOrdersAlert(novos);
+      } else if (novos.length === 0) {
+        stopContinuousAlertSound();
+        setNewOrdersAlert([]);
+      }
+      isFirstLoadRef.current = false;
+      prevOrdersCountRef.current = novos.length;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function handleDismissAlert() {
+    stopContinuousAlertSound();
+    setNewOrdersAlert([]);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -79,6 +109,12 @@ export default function CaixaPage() {
 
   useEffect(() => {
     loadData();
+    checkIncomingOrders();
+    const interval = setInterval(checkIncomingOrders, 5000);
+    return () => {
+      clearInterval(interval);
+      stopContinuousAlertSound();
+    };
   }, []);
 
   // Adicionar produto ao carrinho
@@ -344,6 +380,32 @@ export default function CaixaPage() {
       <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-4rem)]">
         {/* Lado Esquerdo: Catálogo e Produtos */}
         <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+          {/* Banner de Alerta de Novo Pedido com Som Contínuo */}
+          {newOrdersAlert.length > 0 && (
+            <div className="bg-red-600 text-white p-4 rounded-2xl shadow-xl flex items-center justify-between animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/20 rounded-xl">
+                  <Bell size={24} className="animate-bounce" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base leading-tight">
+                    NOVO PEDIDO RECEBIDO! ({newOrdersAlert.length})
+                  </h3>
+                  <p className="text-xs text-white/90">
+                    Há pedido(s) aguardando atendimento. Clique ao lado para silenciar e conferir.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleDismissAlert}
+                className="px-4 py-2.5 bg-white text-red-600 hover:bg-gray-100 rounded-xl font-black text-xs active:scale-95 transition-all shadow-md flex items-center gap-2"
+              >
+                <BellOff size={16} />
+                <span>Ciente / Atender</span>
+              </button>
+            </div>
+          )}
+
           {/* Topo: Status do Caixa e Busca */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
             <div className="flex items-center gap-3">

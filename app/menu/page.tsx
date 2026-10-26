@@ -681,7 +681,10 @@ export default function PublicMenuPage() {
                 {orderType === "DELIVERY" && (
                   <>
                     <div>
-                      <label className="font-bold text-gray-300">Seu Bairro (Taxa de Entrega)</label>
+                      <div className="flex justify-between items-center">
+                        <label className="font-bold text-gray-300">Seu Bairro (Taxa de Entrega)</label>
+                        <span className="text-[11px] font-bold text-emerald-400">⏱️ Entrega em 35-50 min</span>
+                      </div>
                       <select
                         onChange={(e) => {
                           const z = zones.find((item) => item.id === e.target.value);
@@ -691,7 +694,7 @@ export default function PublicMenuPage() {
                       >
                         {zones.map((z) => (
                           <option key={z.id} value={z.id} className="bg-[#141820] text-white">
-                            {z.neighborhood} - {formatCurrency(z.fee)}
+                            {z.neighborhood} - {formatCurrency(z.fee)} (Estimativa: ~40min)
                           </option>
                         ))}
                       </select>

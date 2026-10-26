@@ -39,3 +39,22 @@ export function playOrderSound() {
     console.error("Erro ao reproduzir som:", err);
   }
 }
+
+let continuousInterval: any = null;
+
+export function playContinuousAlertSound() {
+  if (typeof window === "undefined") return;
+  if (continuousInterval) return; // Já está tocando
+
+  playOrderSound();
+  continuousInterval = setInterval(() => {
+    playOrderSound();
+  }, 2500);
+}
+
+export function stopContinuousAlertSound() {
+  if (continuousInterval) {
+    clearInterval(continuousInterval);
+    continuousInterval = null;
+  }
+}
