@@ -17,7 +17,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
 } from "lucide-react";
-import { printReceipt } from "@/lib/print";
+import { printReceipt, printRegisterCloseReceipt } from "@/lib/print";
 
 interface CartItem {
   id: string;
@@ -232,9 +232,46 @@ export default function CaixaPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // Imprime o cupom térmico Z de Fechamento de Caixa
+      if (register) {
+        const movements = register.movements || [];
+        let salesTotal = 0;
+        let salesCount = 0;
+        let suppliesTotal = 0;
+        let bleedsTotal = 0;
+        const payments: Record<string, number> = {};
+
+        movements.forEach((m: any) => {
+          if (m.type === "VENDA") {
+            salesTotal += m.amount;
+            salesCount += 1;
+            const method = m.order?.paymentMethod || "OUTROS";
+            payments[method] = (payments[method] || 0) + m.amount;
+          } else if (m.type === "SUPRIMENTO") {
+            suppliesTotal += m.amount;
+          } else if (m.type === "SANGRIA") {
+            bleedsTotal += m.amount;
+          }
+        });
+
+        printRegisterCloseReceipt({
+          openedAt: register.openedAt,
+          closedAt: new Date(),
+          initialAmount: register.initialAmount,
+          finalAmount: parseCurrencyToCents(finalAmount),
+          expectedAmount: data.register?.expectedAmount || (register.initialAmount + salesTotal + suppliesTotal - bleedsTotal),
+          salesTotal,
+          suppliesTotal,
+          bleedsTotal,
+          salesCount,
+          payments,
+        });
+      }
+
       setRegister(null);
       setCloseModal(false);
-      alert("Caixa fechado com sucesso!");
+      alert("Caixa fechado com sucesso! Cupom de fechamento enviado para impressão.");
     } catch (e: any) {
       alert(e.message);
     }

@@ -73,31 +73,53 @@ export default function ClientesPage() {
                   <th className="py-3 px-4">Endereço Principal</th>
                   <th className="py-3 px-4">Total de Pedidos</th>
                   <th className="py-3 px-4">Pontos Fidelidade</th>
-                  <th className="py-3 px-4 text-right">Cadastrado em</th>
+                  <th className="py-3 px-4">Cadastrado em</th>
+                  <th className="py-3 px-4 text-right">Ações & Fidelidade</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {customers.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="py-3 px-4 font-bold text-gray-900">{c.name}</td>
-                    <td className="py-3 px-4 text-xs font-semibold text-gray-600">{c.phone}</td>
-                    <td className="py-3 px-4 text-xs text-gray-500 max-w-xs truncate">
-                      {c.address || "Não informado"}
-                    </td>
-                    <td className="py-3 px-4 text-xs font-bold text-gray-700">
-                      {c._count?.orders || 0} pedidos
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-200">
-                        <Award size={14} className="text-amber-500" />
-                        {c.points} pts
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-gray-400 text-right">
-                      {formatDateTime(c.createdAt)}
-                    </td>
-                  </tr>
-                ))}
+                {customers.map((c) => {
+                  const promoMsg = `Olá, ${c.name}! 🍔 Sentimos sua falta na Central Lanches! Que tal pedir seu lanche favorito hoje? Use o cupom *CENTRAL5* e ganhe R$ 5,00 de desconto: https://central-lanches-theta.vercel.app/menu`;
+                  const cleanPhone = (c.phone || "").replace(/\D/g, "");
+                  const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(promoMsg)}` : "#";
+
+                  return (
+                    <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
+                      <td className="py-3 px-4 font-bold text-gray-900">{c.name}</td>
+                      <td className="py-3 px-4 text-xs font-semibold text-gray-600">{c.phone}</td>
+                      <td className="py-3 px-4 text-xs text-gray-500 max-w-xs truncate">
+                        {c.address || "Não informado"}
+                      </td>
+                      <td className="py-3 px-4 text-xs font-bold text-gray-700">
+                        {c._count?.orders || 0} pedidos
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-200">
+                          <Award size={14} className="text-amber-500" />
+                          {c.points} pts
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-xs text-gray-400">
+                        {formatDateTime(c.createdAt)}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {cleanPhone ? (
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold active:scale-95 transition-all"
+                            title="Enviar cupom promocional no WhatsApp"
+                          >
+                            <span>WhatsApp Promo</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-300">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -68,17 +68,21 @@ export class DashboardService {
       paymentStats[o.paymentMethod] = (paymentStats[o.paymentMethod] || 0) + o.total;
     });
 
-    // Alertas
-    const lowStockItems = await prisma.inventoryItem.findMany({
-      where: { quantity: { lte: prisma.inventoryItem.fields.minQuantity } },
+    // Top Produtos Mais Vendidos
+    const productCounts: Record<string, { name: string; count: number; total: number }> = {};
+    todayOrders.forEach((o) => {
+      (o.items || []).forEach((it: any) => {
+        if (!productCounts[it.productName]) {
+          productCounts[it.productName] = { name: it.productName, count: 0, total: 0 };
+        }
+        productCounts[it.productName].count += it.quantity;
+        productCounts[it.productName].total += it.totalPrice;
+      });
     });
 
-    const delayedOrders = await prisma.order.findMany({
-      where: {
-        status: { in: ["NOVO", "PREPARANDO"] },
-        createdAt: { lte: new Date(Date.now() - 30 * 60 * 1000) }, // mais de 30 min
-      },
-    });
+    const topProducts = Object.values(productCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     return {
       dayRevenue,
@@ -90,6 +94,7 @@ export class DashboardService {
       estimatedProfit,
       hourlyData,
       paymentStats,
+      topProducts,
       alerts: {
         lowStockCount: lowStockItems.length,
         delayedOrdersCount: delayedOrders.length,

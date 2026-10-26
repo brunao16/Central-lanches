@@ -283,25 +283,58 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Gráfico de Vendas por Hora */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
-          <div>
-            <h3 className="font-extrabold text-base text-gray-900">Vendas por Horário (Hoje)</h3>
-            <p className="text-xs text-gray-500">Volume vendido em R$ em cada faixa de horário</p>
+        {/* Grid: Gráfico de Vendas por Hora e Top Produtos */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
+            <div>
+              <h3 className="font-extrabold text-base text-gray-900">Vendas por Horário (Hoje)</h3>
+              <p className="text-xs text-gray-500">Volume vendido em R$ em cada faixa de horário</p>
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metrics?.hourlyData || []}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="hour" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
+                  <Tooltip
+                    formatter={(value: any) => [`R$ ${Number(value).toFixed(2)}`, "Total"]}
+                    contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
+                  />
+                  <Bar dataKey="total" fill="#e8192c" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.hourlyData || []}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="hour" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
-                <Tooltip
-                  formatter={(value: any) => [`R$ ${Number(value).toFixed(2)}`, "Total"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
-                />
-                <Bar dataKey="total" fill="#e8192c" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+
+          {/* Top 5 Produtos Mais Pedidos Hoje */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
+            <div>
+              <h3 className="font-extrabold text-base text-gray-900">Top 5 Mais Pedidos (Hoje)</h3>
+              <p className="text-xs text-gray-500">Ranking por quantidade de itens vendidos</p>
+            </div>
+
+            <div className="space-y-3">
+              {(metrics?.topProducts || []).map((p: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-lg bg-red-100 text-red-700 font-black text-xs flex items-center justify-center">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-xs font-bold text-gray-900 line-clamp-1">{p.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-gray-900 block">{p.count}x</span>
+                    <span className="text-[10px] text-gray-400 font-semibold">{formatCurrency(p.total)}</span>
+                  </div>
+                </div>
+              ))}
+
+              {(!metrics?.topProducts || metrics.topProducts.length === 0) && (
+                <div className="py-8 text-center text-xs text-gray-400 font-medium">
+                  Nenhum pedido finalizado hoje ainda.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
