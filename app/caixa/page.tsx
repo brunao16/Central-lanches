@@ -59,6 +59,7 @@ export default function CaixaPage() {
   const [amountReceived, setAmountReceived] = useState("");
   const [discount, setDiscount] = useState("0,00");
   const [orderNotes, setOrderNotes] = useState("");
+  const [lastFinishedOrder, setLastFinishedOrder] = useState<any>(null);
   const [newOrdersAlert, setNewOrdersAlert] = useState<any[]>([]);
   const prevOrdersCountRef = useRef<number>(0);
   const isFirstLoadRef = useRef(true);

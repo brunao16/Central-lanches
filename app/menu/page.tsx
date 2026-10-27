@@ -34,7 +34,7 @@ export default function PublicMenuPage() {
   const [products, setProducts] = useState<MenuItem[]>([]);
   const [zones, setZones] = useState<any[]>([]);
   const [setting, setSetting] = useState<any>(null);
-  const [selectedCat, setSelectedCat] = useState("all");
+  const [selectedCat, setSelectedCat] = useState("");
   const [search, setSearch] = useState("");
 
   // Carrinho com suporte a observações específicas por item
@@ -76,10 +76,12 @@ export default function PublicMenuPage() {
     fetch("/api/public/menu")
       .then((r) => r.json())
       .then((d) => {
-        setCategories(d.categories || []);
+        const cats = d.categories || [];
+        setCategories(cats);
         setProducts(d.products || []);
         setZones(d.zones || []);
         setSetting(d.setting);
+        if (cats.length > 0) setSelectedCat(cats[0].id);
         if (d.zones?.[0]) setSelectedZone(d.zones[0]);
       })
       .finally(() => setLoading(false));
@@ -339,7 +341,7 @@ export default function PublicMenuPage() {
   }
 
   const filteredProducts = products.filter((p) => {
-    const matchesCat = selectedCat === "all" || p.categoryId === selectedCat;
+    const matchesCat = search ? true : (!selectedCat || p.categoryId === selectedCat);
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
@@ -384,16 +386,6 @@ export default function PublicMenuPage() {
 
         {/* Categorias horizontais estilo Cyber/Dark */}
         <div className="max-w-3xl mx-auto px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => setSelectedCat("all")}
-            className={`px-4 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all ${
-              selectedCat === "all"
-                ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
-                : "bg-[#1b2029] text-gray-400 hover:text-white hover:bg-[#252c38] border border-gray-800"
-            }`}
-          >
-            Todos
-          </button>
           {categories.map((c) => (
             <button
               key={c.id}
