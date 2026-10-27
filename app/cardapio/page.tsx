@@ -99,8 +99,46 @@ export default function CardapioAdminPage() {
           </button>
         </div>
 
-        {/* Tabela de Produtos */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {/* Cards no Mobile para Gestão do Cardápio */}
+        <div className="md:hidden space-y-3">
+          {products.map((p) => (
+            <div key={p.id} className="bg-white rounded-2xl p-3.5 border border-gray-200/80 shadow-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {p.imageUrl ? (
+                  <img src={p.imageUrl} alt={p.name} className="w-12 h-12 rounded-xl object-cover bg-gray-100 flex-shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-primary text-xl flex-shrink-0">
+                    🍔
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="font-extrabold text-sm text-gray-900 truncate">{p.name}</div>
+                  <div className="text-[11px] text-gray-500 font-medium">{p.category?.name} • Custo: {formatCurrency(p.costPrice || 0)}</div>
+                  <div className="font-black text-sm text-primary mt-0.5">{formatCurrency(p.price)}</div>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.active ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
+                  {p.active ? "Ativo" : "Pausado"}
+                </span>
+                <button
+                  onClick={() => handleDelete(p.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {products.length === 0 && (
+            <div className="bg-white rounded-2xl p-8 text-center text-xs text-gray-400">
+              Nenhum produto cadastrado.
+            </div>
+          )}
+        </div>
+
+        {/* Tabela de Produtos Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">

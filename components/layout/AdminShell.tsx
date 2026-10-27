@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +17,8 @@ import {
   Settings,
   ExternalLink,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,9 +39,119 @@ const navigation = [
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const currentPage = navigation.find((item) => item.href === pathname)?.name || "Central Lanches";
 
   return (
-    <div className="flex min-h-screen bg-gray-50 pb-16 md:pb-0">
+    <div className="flex min-h-screen bg-gray-50 flex-col md:flex-row pb-20 md:pb-0">
+      {/* Topo Mobile com Menu Drawer */}
+      <header className="md:hidden sticky top-0 z-40 bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-black text-sm shadow-xs">
+            CL
+          </div>
+          <div>
+            <h1 className="font-extrabold text-gray-900 text-sm leading-tight">Central Lanches</h1>
+            <p className="text-[10px] font-semibold text-primary uppercase">{currentPage}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 text-gray-600 hover:text-gray-900 active:scale-95 rounded-xl border border-gray-200"
+          aria-label="Menu"
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </header>
+
+      {/* Drawer Mobile Overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-white font-black text-base shadow-sm">
+                  CL
+                </div>
+                <div>
+                  <h2 className="font-black text-gray-900 text-sm leading-tight">Central Lanches</h2>
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase">Gestão Completa</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors",
+                      isActive
+                        ? "bg-red-50 text-primary font-bold shadow-xs"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-100"
+                    )}
+                  >
+                    <Icon size={19} className={isActive ? "text-primary" : "text-gray-400"} />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="p-3 border-t border-gray-100 space-y-2">
+              <a
+                href="/motoboy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors border border-gray-200"
+              >
+                <span>🛵 Painel do Motoboy</span>
+                <ExternalLink size={14} />
+              </a>
+              <a
+                href="/menu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-red-50 hover:text-primary rounded-xl transition-colors border border-gray-200"
+              >
+                <span>🍔 Cardápio Online</span>
+                <ExternalLink size={14} />
+              </a>
+              <button
+                onClick={async () => {
+                  if (confirm("Deseja sair do sistema?")) {
+                    await fetch("/api/auth/login", { method: "DELETE" });
+                    window.location.href = "/login";
+                  }
+                }}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-red-100"
+              >
+                <span className="flex items-center gap-2">
+                  <LogOut size={14} />
+                  Sair do Sistema
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-gray-200 z-30">
         <div className="flex items-center gap-3 px-6 h-16 border-b border-gray-100">
@@ -119,12 +232,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {children}
       </main>
 
-      {/* Barra de Navegação Inferior para Celular / Tablet Pequeno */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 flex items-center justify-around z-40 md:hidden px-2 shadow-lg">
+      {/* Barra de Navegação Inferior para Celular */}
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 flex items-center justify-around z-40 md:hidden px-1 shadow-lg">
         <Link
           href="/"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[54px] min-h-[48px] py-1 text-[11px] font-medium",
+            "flex flex-col items-center justify-center min-w-[50px] min-h-[48px] py-1 text-[11px] font-medium",
             pathname === "/" ? "text-primary font-bold" : "text-gray-500"
           )}
         >
@@ -134,7 +247,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <Link
           href="/caixa"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[54px] min-h-[48px] py-1 text-[11px] font-medium",
+            "flex flex-col items-center justify-center min-w-[50px] min-h-[48px] py-1 text-[11px] font-medium",
             pathname === "/caixa" ? "text-primary font-bold" : "text-gray-500"
           )}
         >
@@ -144,7 +257,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <Link
           href="/cozinha"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[54px] min-h-[48px] py-1 text-[11px] font-medium",
+            "flex flex-col items-center justify-center min-w-[50px] min-h-[48px] py-1 text-[11px] font-medium",
             pathname === "/cozinha" ? "text-primary font-bold" : "text-gray-500"
           )}
         >
@@ -154,7 +267,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <Link
           href="/delivery"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[54px] min-h-[48px] py-1 text-[11px] font-medium",
+            "flex flex-col items-center justify-center min-w-[50px] min-h-[48px] py-1 text-[11px] font-medium",
             pathname === "/delivery" ? "text-primary font-bold" : "text-gray-500"
           )}
         >
@@ -164,13 +277,20 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <Link
           href="/pedidos"
           className={cn(
-            "flex flex-col items-center justify-center min-w-[54px] min-h-[48px] py-1 text-[11px] font-medium",
+            "flex flex-col items-center justify-center min-w-[50px] min-h-[48px] py-1 text-[11px] font-medium",
             pathname === "/pedidos" ? "text-primary font-bold" : "text-gray-500"
           )}
         >
           <Receipt size={20} />
           Pedidos
         </Link>
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center min-w-[50px] min-h-[48px] py-1 text-[11px] font-medium text-gray-500 hover:text-primary"
+        >
+          <Menu size={20} />
+          Mais
+        </button>
       </nav>
     </div>
   );

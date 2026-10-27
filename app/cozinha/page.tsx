@@ -20,6 +20,7 @@ export default function CozinhaPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [kitchenTab, setKitchenTab] = useState<"ALL" | "NOVO" | "PREPARANDO" | "PRONTO">("ALL");
   const prevOrderCountRef = useRef<number>(0);
   const isFirstLoadRef = useRef(true);
 
@@ -148,10 +149,54 @@ export default function CozinhaPage() {
           </div>
         </div>
 
+        {/* Seletor de Abas Mobile na Cozinha */}
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            onClick={() => setKitchenTab("ALL")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              kitchenTab === "ALL"
+                ? "bg-gray-900 text-white shadow-xs"
+                : "bg-white text-gray-600 border border-gray-200"
+            }`}
+          >
+            Todos ({orders.length})
+          </button>
+          <button
+            onClick={() => setKitchenTab("NOVO")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              kitchenTab === "NOVO"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-amber-800 border border-amber-200"
+            }`}
+          >
+            🟡 Novos ({novos.length})
+          </button>
+          <button
+            onClick={() => setKitchenTab("PREPARANDO")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              kitchenTab === "PREPARANDO"
+                ? "bg-orange-600 text-white shadow-xs"
+                : "bg-white text-orange-800 border border-orange-200"
+            }`}
+          >
+            🔥 Preparando ({preparando.length})
+          </button>
+          <button
+            onClick={() => setKitchenTab("PRONTO")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              kitchenTab === "PRONTO"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-white text-emerald-800 border border-emerald-200"
+            }`}
+          >
+            ✅ Prontos ({prontos.length})
+          </button>
+        </div>
+
         {/* Quadro Kanban em 3 Colunas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 items-start">
           {/* Coluna 1: Novos */}
-          <div className="bg-amber-50/40 p-3.5 rounded-2xl border border-amber-200/80 space-y-3">
+          <div className={`bg-amber-50/40 p-3.5 rounded-2xl border border-amber-200/80 space-y-3 ${kitchenTab !== "ALL" && kitchenTab !== "NOVO" ? "hidden md:block" : "block"}`}>
             <div className="flex items-center justify-between px-1">
               <span className="font-extrabold text-xs uppercase tracking-wider text-amber-800">
                 🟡 Novos Pedidos ({novos.length})
@@ -229,7 +274,7 @@ export default function CozinhaPage() {
           </div>
 
           {/* Coluna 2: Em Preparo */}
-          <div className="bg-orange-50/40 p-3.5 rounded-2xl border border-orange-200/80 space-y-3">
+          <div className={`bg-orange-50/40 p-3.5 rounded-2xl border border-orange-200/80 space-y-3 ${kitchenTab !== "ALL" && kitchenTab !== "PREPARANDO" ? "hidden md:block" : "block"}`}>
             <div className="flex items-center justify-between px-1">
               <span className="font-extrabold text-xs uppercase tracking-wider text-orange-800">
                 🔥 Na Chapa / Preparando ({preparando.length})
@@ -307,7 +352,7 @@ export default function CozinhaPage() {
           </div>
 
           {/* Coluna 3: Prontos */}
-          <div className="bg-emerald-50/40 p-3.5 rounded-2xl border border-emerald-200/80 space-y-3">
+          <div className={`bg-emerald-50/40 p-3.5 rounded-2xl border border-emerald-200/80 space-y-3 ${kitchenTab !== "ALL" && kitchenTab !== "PRONTO" ? "hidden md:block" : "block"}`}>
             <div className="flex items-center justify-between px-1">
               <span className="font-extrabold text-xs uppercase tracking-wider text-emerald-800">
                 ✅ Prontos / Expedição ({prontos.length})

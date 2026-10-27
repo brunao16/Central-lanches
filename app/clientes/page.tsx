@@ -62,8 +62,61 @@ export default function ClientesPage() {
           </form>
         </div>
 
-        {/* Lista de Clientes */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {/* Cards no Mobile para Clientes & Fidelidade */}
+        <div className="md:hidden space-y-3">
+          {customers.map((c) => {
+            const promoMsg = `Olá, ${c.name}! 🍔 Sentimos sua falta na Central Lanches! Que tal pedir seu lanche favorito hoje? Use o cupom *CENTRAL5* e ganhe R$ 5,00 de desconto: https://central-lanches-theta.vercel.app/menu`;
+            const cleanPhone = (c.phone || "").replace(/\D/g, "");
+            const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(promoMsg)}` : "#";
+
+            return (
+              <div key={c.id} className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-gray-900">{c.name}</h3>
+                    <div className="text-[11px] text-gray-500 font-semibold">{c.phone || "Sem telefone"}</div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-800 border border-amber-200">
+                    <Award size={13} className="text-amber-500" />
+                    {c.points} pts
+                  </span>
+                </div>
+
+                <div className="text-xs text-gray-500 pt-1 border-t border-gray-100 flex items-center justify-between">
+                  <span>{c._count?.orders || 0} pedidos feitos</span>
+                  <span className="text-[11px] text-gray-400">{formatDateTime(c.createdAt)}</span>
+                </div>
+
+                {c.address && (
+                  <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded-xl">
+                    📍 {c.address}
+                  </div>
+                )}
+
+                {cleanPhone && (
+                  <div className="pt-1">
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-1.5 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold active:scale-95 transition-all"
+                    >
+                      <span>Enviar Cupom no WhatsApp</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {customers.length === 0 && (
+            <div className="bg-white rounded-2xl p-8 text-center text-xs text-gray-400">
+              Nenhum cliente cadastrado.
+            </div>
+          )}
+        </div>
+
+        {/* Lista de Clientes Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">

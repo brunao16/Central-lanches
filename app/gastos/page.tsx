@@ -89,8 +89,39 @@ export default function GastosPage() {
           </div>
         </div>
 
-        {/* Lista de Despesas */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {/* Cards no Mobile para Gastos */}
+        <div className="md:hidden space-y-3">
+          {expenses.map((e) => (
+            <div key={e.id} className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">{e.description}</h3>
+                  <div className="text-[11px] text-gray-400 font-medium">{formatDateTime(e.date)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-black text-base text-gray-900">{formatCurrency(e.amount)}</div>
+                  <span className="text-[10px] text-gray-500 font-semibold">{e.paymentMethod}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-xs">
+                <span className="text-gray-500">{e.category}</span>
+                {e.isRecurring && (
+                  <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    Recorrente Mensal
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+          {expenses.length === 0 && (
+            <div className="bg-white rounded-2xl p-8 text-center text-xs text-gray-400">
+              Nenhuma despesa lançada.
+            </div>
+          )}
+        </div>
+
+        {/* Lista de Despesas Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">

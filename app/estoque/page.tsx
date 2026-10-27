@@ -85,8 +85,68 @@ export default function EstoquePage() {
           </button>
         </div>
 
-        {/* Tabela de Insumos */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {/* Cards no Mobile para Estoque de Insumos */}
+        <div className="md:hidden space-y-3">
+          {items.map((i) => {
+            const isLow = i.quantity <= i.minQuantity;
+            return (
+              <div key={i.id} className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-gray-900">{i.name}</h3>
+                    <div className="text-[11px] text-gray-500 font-medium">
+                      Mínimo: {i.minQuantity} {i.unit} • Custo: {formatCurrency(i.cost)}
+                    </div>
+                  </div>
+                  {isLow ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-800">
+                      <AlertTriangle size={12} />
+                      Baixo
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                      Normal
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-semibold block uppercase">Qtd Atual</span>
+                    <span className="font-black text-lg text-gray-900">
+                      {i.quantity} <span className="text-xs font-normal text-gray-500">{i.unit}</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-200">
+                    <button
+                      onClick={() => handleAdjust(i.id, -1)}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-white shadow-xs text-gray-700 active:scale-95 font-bold"
+                      title="Subtrair 1"
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleAdjust(i.id, 1)}
+                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-white shadow-xs active:scale-95 font-bold"
+                      title="Adicionar 1"
+                    >
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {items.length === 0 && (
+            <div className="bg-white rounded-2xl p-8 text-center text-xs text-gray-400">
+              Nenhum insumo cadastrado.
+            </div>
+          )}
+        </div>
+
+        {/* Tabela de Insumos Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">

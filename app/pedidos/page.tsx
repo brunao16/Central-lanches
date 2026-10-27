@@ -259,8 +259,76 @@ export default function PedidosPage() {
           </div>
         )}
 
-        {/* Tabela de Pedidos */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {/* Visualização Mobile em Cards para Celular */}
+        <div className="md:hidden space-y-3">
+          {filteredOrders.map((o) => (
+            <div key={o.id} className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-black text-base text-gray-900">#{o.code}</span>
+                  <div className="text-[11px] text-gray-400 font-medium">{formatDateTime(o.createdAt)}</div>
+                </div>
+                <span
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                    o.status === "ENTREGUE"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : o.status === "CANCELADO"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {o.status}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-100">
+                <div>
+                  <div className="font-bold text-gray-800">{o.customerName || "Balcão"}</div>
+                  <div className="text-gray-500">{o.type} {o.tableNumber ? `• Mesa #${o.tableNumber}` : ""} • {o.paymentMethod}</div>
+                </div>
+                <div className="font-black text-base text-primary">
+                  {formatCurrency(o.total)}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePrintOrder(o, "CUSTOMER")}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold"
+                  >
+                    <Printer size={13} />
+                    <span>Via Cliente</span>
+                  </button>
+                  <button
+                    onClick={() => handlePrintOrder(o, "KITCHEN")}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-xl text-xs font-bold"
+                  >
+                    <ChefHat size={13} />
+                    <span>Cozinha</span>
+                  </button>
+                </div>
+                {o.status !== "CANCELADO" && (
+                  <button
+                    onClick={() => handleCancel(o.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"
+                    title="Cancelar pedido"
+                  >
+                    <XCircle size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {filteredOrders.length === 0 && (
+            <div className="bg-white rounded-2xl p-8 text-center text-xs text-gray-400">
+              Nenhum pedido encontrado.
+            </div>
+          )}
+        </div>
+
+        {/* Tabela de Pedidos Desktop */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">

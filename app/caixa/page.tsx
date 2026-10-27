@@ -60,6 +60,7 @@ export default function CaixaPage() {
   const [discount, setDiscount] = useState("0,00");
   const [orderNotes, setOrderNotes] = useState("");
   const [lastFinishedOrder, setLastFinishedOrder] = useState<any>(null);
+  const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog");
   const [newOrdersAlert, setNewOrdersAlert] = useState<any[]>([]);
   const prevOrdersCountRef = useRef<number>(0);
   const isFirstLoadRef = useRef(true);
@@ -382,9 +383,38 @@ export default function CaixaPage() {
 
   return (
     <AdminShell>
+      {/* Barra de alternância rápida no Celular */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-2 sticky top-14 z-30 shadow-xs">
+        <button
+          onClick={() => setMobileTab("catalog")}
+          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+            mobileTab === "catalog"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          <span>🍔 Produtos / Lanches</span>
+        </button>
+        <button
+          onClick={() => setMobileTab("cart")}
+          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+            mobileTab === "cart"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          <span>🛍️ Pedido ({cart.reduce((a, b) => a + b.quantity, 0)})</span>
+          {cart.length > 0 && (
+            <span className="text-[10px] bg-white text-primary px-1.5 py-0.2 rounded-full font-bold">
+              {formatCurrency(total)}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh-4rem)]">
         {/* Lado Esquerdo: Catálogo e Produtos */}
-        <div className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+        <div className={`flex-1 p-3 sm:p-4 md:p-6 space-y-4 overflow-y-auto ${mobileTab === "cart" ? "hidden lg:block" : "block"}`}>
           {/* Banner de Alerta de Novo Pedido com Som Contínuo */}
           {newOrdersAlert.length > 0 && (
             <div className="bg-red-600 text-white p-4 rounded-2xl shadow-xl flex items-center justify-between animate-pulse">
@@ -529,7 +559,7 @@ export default function CaixaPage() {
         </div>
 
         {/* Lado Direito: Carrinho / Fechamento de Venda */}
-        <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col h-auto lg:h-[calc(100vh-4rem)]">
+        <div className={`w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col h-auto lg:h-[calc(100vh-4rem)] ${mobileTab === "catalog" ? "hidden lg:flex" : "flex"}`}>
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2 font-black text-gray-900 text-base">
               <ShoppingBag className="text-primary" size={20} />
