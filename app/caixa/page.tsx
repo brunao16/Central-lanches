@@ -33,7 +33,7 @@ interface CartItem {
 export default function CaixaPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,9 +98,13 @@ export default function CaixaPage() {
       ]);
       const prodData = await prodRes.json();
       const cashData = await cashRes.json();
-      setCategories(prodData.categories || []);
+      const cats = prodData.categories || [];
+      setCategories(cats);
       setProducts(prodData.products || []);
       setRegister(cashData.register);
+      if (cats.length > 0) {
+        setSelectedCategory(cats[0].id);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -371,7 +375,7 @@ export default function CaixaPage() {
   }
 
   const filteredProducts = products.filter((p) => {
-    const matchesCat = selectedCategory === "all" || p.categoryId === selectedCategory;
+    const matchesCat = searchTerm ? true : (!selectedCategory || p.categoryId === selectedCategory);
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCat && matchesSearch;
   });
@@ -477,16 +481,6 @@ export default function CaixaPage() {
 
             {/* Abas de Categorias */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              <button
-                onClick={() => setSelectedCategory("all")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  selectedCategory === "all"
-                    ? "bg-primary text-white shadow-sm"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                Todos
-              </button>
               {categories.map((c) => (
                 <button
                   key={c.id}
