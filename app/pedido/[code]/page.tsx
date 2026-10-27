@@ -1,22 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { Clock, CheckCircle2, Bike, ChefHat, AlertCircle, ArrowLeft } from "lucide-react";
+import { Clock, CheckCircle2, Bike, ChefHat, AlertCircle, ArrowLeft, Bell, Volume2 } from "lucide-react";
 import Link from "next/link";
+
+function playStatusSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 export default function AcompanharPedidoPage() {
   const params = useParams();
   const code = params.code as string;
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [statusUpdateToast, setStatusUpdateToast] = useState<string | null>(null);
+  const prevStatusRef = useRef<string | null>(null);
 
   async function loadOrder() {
     try {
       const res = await fetch(`/api/public/order/${encodeURIComponent(code)}`);
       const d = await res.json();
-      setOrder(d.order);
+      const updatedOrder = d.order;
+      if (updatedOrder) {
+        if (prevStatusRef.current && prevStatusRef.current !== updatedOrder.status) {
+          playStatusSound();
+          const stepNames: Record<string, string> = {
+            NOVO: "Pedido recebido!",
+            PREPARANDO: "Seu pedido está sendo preparado na chapa! 🍔",
+            PRONTO: "Pedido prontinho! 😋",
+            SAIU_ENTREGA: "O motoboy acabou de sair com sua entrega! 🛵💨",
+            ENTREGUE: "Pedido entregue com sucesso! Bom apetite! ❤️",
+          };
+          setStatusUpdateToast(stepNames[updatedOrder.status] || `Status atualizado para ${updatedOrder.status}`);
+          setTimeout(() => setStatusUpdateToast(null), 6000);
+        }
+        prevStatusRef.current = updatedOrder.status;
+        setOrder(updatedOrder);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -26,7 +63,7 @@ export default function AcompanharPedidoPage() {
 
   useEffect(() => {
     loadOrder();
-    const interval = setInterval(loadOrder, 8000);
+    const interval = setInterval(loadOrder, 6000);
     return () => clearInterval(interval);
   }, [code]);
 
@@ -76,6 +113,19 @@ export default function AcompanharPedidoPage() {
           <ArrowLeft size={16} />
           <span>Voltar ao Cardápio</span>
         </Link>
+
+        {/* Notificação Sonora & Visual de Atualização do Pedido */}
+        {statusUpdateToast && (
+          <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce border border-red-400/40">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <Bell size={20} className="animate-spin" />
+            </div>
+            <div>
+              <div className="font-black text-sm">Status Atualizado!</div>
+              <div className="text-xs font-medium text-white/90">{statusUpdateToast}</div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-[#141820] rounded-3xl p-6 shadow-xl border border-gray-800 text-center space-y-2">
           <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Status do Pedido</span>

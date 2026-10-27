@@ -31,17 +31,34 @@ export default function MotoboyPage() {
     return () => clearInterval(interval);
   }, []);
 
-  async function markDelivered(id: string) {
-    if (!confirm("Confirmar que a entrega foi realizada com sucesso?")) return;
+  const [confirmModalOrder, setConfirmModalOrder] = useState<any>(null);
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverDoc, setReceiverDoc] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleConfirmDelivery(e: React.FormEvent) {
+    e.preventDefault();
+    if (!confirmModalOrder) return;
+
+    setConfirming(true);
     try {
-      await fetch(`/api/orders/${id}`, {
+      const extraNotes = receiverName ? `Entregue para: ${receiverName}${receiverDoc ? ` (Doc: ${receiverDoc})` : ""}` : undefined;
+      await fetch(`/api/orders/${confirmModalOrder.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "ENTREGUE" }),
+        body: JSON.stringify({
+          status: "ENTREGUE",
+          notes: extraNotes ? (confirmModalOrder.notes ? `${confirmModalOrder.notes} | ${extraNotes}` : extraNotes) : undefined,
+        }),
       });
+      setConfirmModalOrder(null);
+      setReceiverName("");
+      setReceiverDoc("");
       loadDeliveries();
     } catch (e) {
       console.error(e);
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -144,7 +161,10 @@ export default function MotoboyPage() {
 
               {/* Confirmar Entrega */}
               <button
-                onClick={() => markDelivered(order.id)}
+                onClick={() => {
+                  setConfirmModalOrder(order);
+                  setReceiverName(order.customerName || "");
+                }}
                 className="w-full py-2.5 bg-gray-900 hover:bg-black text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm"
               >
                 <CheckCircle2 size={16} />
@@ -162,6 +182,67 @@ export default function MotoboyPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Conclusão da Entrega */}
+      {confirmModalOrder && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleConfirmDelivery}
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <CheckCircle2 size={24} />
+              </div>
+              <div>
+                <h3 className="font-black text-gray-900 text-base leading-tight">Confirmar Entrega</h3>
+                <p className="text-xs text-gray-500">Pedido #{confirmModalOrder.code}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Nome de quem recebeu</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Carlos (próprio cliente) ou Portaria"
+                  value={receiverName}
+                  onChange={(e) => setReceiverName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-semibold focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">RG / CPF / Apto (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Apto 302 ou Doc 12345"
+                  value={receiverDoc}
+                  onChange={(e) => setReceiverDoc(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-semibold focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModalOrder(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50"
+              >
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={confirming}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-200 active:scale-95 transition-all"
+              >
+                {confirming ? "Finalizando..." : "Concluir"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -117,11 +117,30 @@ export default function CaixaPage() {
     loadData();
     checkIncomingOrders();
     const interval = setInterval(checkIncomingOrders, 5000);
+
+    // Atalhos de Teclado no Caixa
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "F2") {
+        e.preventDefault();
+        if (cart.length > 0 && register) {
+          handleCheckout();
+        }
+      } else if (e.key === "Escape") {
+        if (cart.length > 0) {
+          if (confirm("Deseja limpar todos os itens do carrinho?")) {
+            setCart([]);
+          }
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
       clearInterval(interval);
       stopContinuousAlertSound();
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [cart, register, orderType, paymentMethod, customerName, customerPhone, deliveryAddress, discount, amountReceived]);
 
   // Adicionar produto ao carrinho
   function addToCart(p: any) {
@@ -730,9 +749,10 @@ export default function CaixaPage() {
             <button
               onClick={handleCheckout}
               disabled={cart.length === 0 || !register}
-              className="w-full py-3.5 bg-primary text-white rounded-xl font-extrabold text-sm hover:bg-primary-hover active:scale-[0.98] transition-all shadow-md shadow-red-200 disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full py-3.5 bg-primary text-white rounded-xl font-extrabold text-sm hover:bg-primary-hover active:scale-[0.98] transition-all shadow-md shadow-red-200 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
             >
-              Finalizar Pedido
+              <span>Finalizar Pedido</span>
+              <kbd className="hidden sm:inline-block px-2 py-0.5 bg-white/20 text-white rounded text-[11px] font-mono">F2</kbd>
             </button>
           </div>
         </div>

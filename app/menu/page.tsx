@@ -619,6 +619,62 @@ export default function PublicMenuPage() {
                 ))}
               </div>
 
+              {/* Compre Junto: Sugestões Inteligentes para Aumentar o Ticket Médio */}
+              {products.filter((p) => {
+                const catName = categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase() || "";
+                return catName.includes("bebida") || catName.includes("porç") || p.name.toLowerCase().includes("batata") || p.name.toLowerCase().includes("coca");
+              }).slice(0, 3).length > 0 && (
+                <div className="bg-[#1b2029] p-3 rounded-2xl border border-gray-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-[11px] text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🍟🥤 Que tal acompanhar com?</span>
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-semibold">+ Vendidos</span>
+                  </div>
+                  <div className="space-y-2">
+                    {products
+                      .filter((p) => {
+                        const catName = categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase() || "";
+                        return (catName.includes("bebida") || catName.includes("porç") || p.name.toLowerCase().includes("batata") || p.name.toLowerCase().includes("coca")) && !cart[p.id];
+                      })
+                      .slice(0, 3)
+                      .map((sug) => (
+                        <div key={sug.id} className="flex items-center justify-between bg-[#141820] p-2 rounded-xl border border-gray-800/80">
+                          <div className="flex items-center gap-2">
+                            {sug.imageUrl ? (
+                              <img src={sug.imageUrl} alt={sug.name} className="w-8 h-8 rounded-lg object-cover bg-gray-800" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-red-950/40 text-red-400 flex items-center justify-center text-xs">
+                                🥤
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-gray-200 text-xs">{sug.name}</div>
+                              <div className="text-[10px] text-red-400 font-black">{formatCurrency(sug.price)}</div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCart((prev) => ({
+                                ...prev,
+                                [sug.id]: {
+                                  item: sug,
+                                  qty: (prev[sug.id]?.qty || 0) + 1,
+                                  notes: "",
+                                },
+                              }));
+                            }}
+                            className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 rounded-lg text-[10px] font-black active:scale-95 transition-all"
+                          >
+                            + Adicionar
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {/* Formulário de Envio */}
               <form onSubmit={handleSendOrder} className="space-y-3 pt-2 border-t border-gray-800">
                 <div className="flex gap-2">
