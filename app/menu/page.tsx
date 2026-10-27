@@ -163,7 +163,7 @@ export default function PublicMenuPage() {
 
   const cartList = Object.values(cart);
   const subtotal = cartList.reduce((acc, c) => acc + c.item.price * c.qty, 0);
-  const deliveryFee = orderType === "DELIVERY" ? (selectedZone?.fee || setting?.deliveryFee || 500) : 0;
+  const deliveryFee = orderType === "DELIVERY" ? (setting?.deliveryFee ?? 500) : 0;
   const discountAmount = appliedCoupon ? Math.min(subtotal, appliedCoupon.discountCents) : 0;
   const total = Math.max(0, subtotal - discountAmount + deliveryFee);
 
@@ -728,24 +728,14 @@ export default function PublicMenuPage() {
 
                 {orderType === "DELIVERY" && (
                   <>
-                    <div>
-                      <div className="flex justify-between items-center">
-                        <label className="font-bold text-gray-300">Seu Bairro (Taxa de Entrega)</label>
-                        <span className="text-[11px] font-bold text-emerald-400">⏱️ Entrega em 35-50 min</span>
+                    <div className="bg-[#1b2029] p-3 rounded-xl border border-gray-800 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-gray-200">Taxa Fixa de Entrega</div>
+                        <div className="text-[11px] text-gray-400">⏱️ Tempo estimado: 35-50 min</div>
                       </div>
-                      <select
-                        onChange={(e) => {
-                          const z = zones.find((item) => item.id === e.target.value);
-                          if (z) setSelectedZone(z);
-                        }}
-                        className="w-full mt-1 px-3 py-2 bg-[#1b2029] border border-gray-800 rounded-xl focus:outline-none focus:border-red-500 text-white font-semibold"
-                      >
-                        {zones.map((z) => (
-                          <option key={z.id} value={z.id} className="bg-[#141820] text-white">
-                            {z.neighborhood} - {formatCurrency(z.fee)} (Estimativa: ~40min)
-                          </option>
-                        ))}
-                      </select>
+                      <div className="font-black text-sm text-red-500">
+                        {formatCurrency(deliveryFee)}
+                      </div>
                     </div>
 
                     <div>
@@ -753,7 +743,7 @@ export default function PublicMenuPage() {
                       <input
                         type="text"
                         required
-                        placeholder="Rua, número, complemento e ponto de referência"
+                        placeholder="Rua, número, bairro, complemento e referência"
                         value={deliveryAddress}
                         onChange={(e) => setDeliveryAddress(e.target.value)}
                         className="w-full mt-1 px-3 py-2 bg-[#1b2029] border border-gray-800 rounded-xl focus:outline-none focus:border-red-500 text-white"
