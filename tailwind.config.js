@@ -4,9 +4,14 @@ module.exports = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
+      spacing: {
+        '18': '4.5rem',
+        '22': '5.5rem',
+      },
       fontFamily: {
         sans: ["'Plus Jakarta Sans'", "sans-serif"],
         handwriting: ["'Caveat'", "cursive"],

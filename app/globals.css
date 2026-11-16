@@ -3,51 +3,74 @@
 @tailwind utilities;
 
 :root {
-  --primary: #e8192c;
-  --primary-hover: #c81424;
+  --primary: #ea1d2c;
+  --primary-hover: #c41220;
+  --primary-subtle: #fef2f2;
   --accent-amber: #f59e0b;
-  --accent-amber-hover: #d97706;
+  --surface: #ffffff;
+  --background: #f8fafc;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  color: #1f2937;
-  background-color: #faf7f2;
+  color: var(--text-main);
+  background-color: var(--background);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
-.font-handwriting {
-  font-family: 'Caveat', cursive, sans-serif;
+/* Transições fluidas profissionais */
+.transition-smooth {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.font-serif-display {
-  font-family: 'Playfair Display', serif;
-}
-
-/* Scrollbar fina */
+/* Estilo de Scrollbar sutil */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* Área de Impressão Térmica 80mm */
+/* Utilitários para ocultar barra de rolagem em abas horizontais sem perder a rolagem */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Área de Impressão Térmica */
 @media print {
   body * {
     visibility: hidden;
   }
-  #thermal-receipt, #thermal-receipt * {
+
+  #thermal-receipt,
+  #thermal-receipt * {
     visibility: visible;
   }
+
   #thermal-receipt {
     position: absolute;
     left: 0;
@@ -58,6 +81,7 @@ body {
     font-family: "Courier New", Courier, monospace;
     font-size: 12px;
     line-height: 1.2;
+    background: #fff;
     color: #000;
   }
 }
