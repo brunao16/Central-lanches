@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export class DashboardService {
   static async getMetrics() {
     const now = new Date();
-    // Início do dia (Fortaleza aprox. UTC-3)
+    // Início do dia (Fortaleza UTC-3)
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
@@ -18,6 +18,7 @@ export class DashboardService {
         status: { not: "CANCELADO" },
       },
       include: { items: true },
+      orderBy: { createdAt: "desc" },
     });
 
     const dayRevenue = todayOrders.reduce((acc, o) => acc + o.total, 0);
@@ -49,26 +50,47 @@ export class DashboardService {
 
     const estimatedProfit = monthRevenue - monthExpensesTotal;
 
-    // Vendas por hora hoje (0h a 23h)
-    const hourlySales: Record<number, number> = {};
-    for (let h = 18; h <= 23; h++) hourlySales[h] = 0; // horários de pico noturno
+    // Distribuição por Tipo de Pedido (Hoje)
+    const typeStats: Record<string, number> = {
+      BALCAO: 0,
+      DELIVERY: 0,
+      MESA: 0,
+      RETIRADA: 0,
+    };
+    todayOrders.forEach((o) => {
+      const t = o.type || "BALCAO";
+      typeStats[t] = (typeStats[t] || 0) + 1;
+    });
+
+    // Formas de pagamento (Hoje)
+    const paymentStats: Record<string, number> = {
+      PIX: 0,
+      DINHEIRO: 0,
+      DEBITO: 0,
+      CREDITO: 0,
+    };
+    todayOrders.forEach((o) => {
+      const pm = o.paymentMethod || "PIX";
+      paymentStats[pm] = (paymentStats[pm] || 0) + o.total;
+    });
+
+    // Vendas por hora hoje (16h a 00h cobrindo abertura de lanchonete)
+    const hourlySales: Record<number, { total: number; count: number }> = {};
+    for (let h = 11; h <= 23; h++) hourlySales[h] = { total: 0, count: 0 };
     todayOrders.forEach((o) => {
       const hour = new Date(o.createdAt).getHours();
-      hourlySales[hour] = (hourlySales[hour] || 0) + o.total / 100;
+      if (!hourlySales[hour]) hourlySales[hour] = { total: 0, count: 0 };
+      hourlySales[hour].total += o.total / 100;
+      hourlySales[hour].count += 1;
     });
 
-    const hourlyData = Object.entries(hourlySales).map(([hour, total]) => ({
+    const hourlyData = Object.entries(hourlySales).map(([hour, val]) => ({
       hour: `${hour}h`,
-      total,
+      total: Math.round(val.total),
+      pedidos: val.count,
     }));
 
-    // Formas de pagamento
-    const paymentStats: Record<string, number> = {};
-    todayOrders.forEach((o) => {
-      paymentStats[o.paymentMethod] = (paymentStats[o.paymentMethod] || 0) + o.total;
-    });
-
-    // Top Produtos Mais Vendidos
+    // Top Produtos Mais Vendidos Hoje
     const productCounts: Record<string, { name: string; count: number; total: number }> = {};
     todayOrders.forEach((o) => {
       (o.items || []).forEach((it: any) => {
@@ -82,7 +104,39 @@ export class DashboardService {
 
     const topProducts = Object.values(productCounts)
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 6);
+
+    // Alertas de Estoque e Atraso
+    const lowStockItems = await prisma.inventoryItem.findMany({
+      where: {
+        quantity: { lte: 5 },
+      },
+    });
+
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const delayedOrders = await prisma.order.findMany({
+      where: {
+        createdAt: { lte: thirtyMinsAgo },
+        status: { in: ["NOVO", "PREPARANDO"] },
+      },
+    });
+
+    // Últimos 5 Pedidos em Tempo Real
+    const recentOrders = todayOrders.slice(0, 5).map((o) => ({
+      id: o.id,
+      code: o.code,
+      type: o.type,
+      status: o.status,
+      customerName: o.customerName || "Balcão",
+      total: o.total,
+      time: new Date(o.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    }));
+
+    // Status do Caixa Ativo
+    const activeRegister = await prisma.cashRegister.findFirst({
+      where: { status: "ABERTO" },
+      orderBy: { openedAt: "desc" },
+    });
 
     return {
       dayRevenue,
@@ -94,7 +148,11 @@ export class DashboardService {
       estimatedProfit,
       hourlyData,
       paymentStats,
+      typeStats,
       topProducts,
+      recentOrders,
+      isRegisterOpen: !!activeRegister,
+      registerInitial: activeRegister?.initialAmount || 0,
       alerts: {
         lowStockCount: lowStockItems.length,
         delayedOrdersCount: delayedOrders.length,
