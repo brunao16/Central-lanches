@@ -82,6 +82,19 @@ export default function CardapioAdminPage() {
     }
   }
 
+  async function handleToggleActive(p: any) {
+    try {
+      await fetch(`/api/products/${p.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !p.active }),
+      });
+      loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   return (
     <AdminShell>
       <div className="p-4 md:p-6 space-y-6 max-w-7xl">
@@ -118,9 +131,17 @@ export default function CardapioAdminPage() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.active ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
-                  {p.active ? "Ativo" : "Pausado"}
-                </span>
+                <button
+                  onClick={() => handleToggleActive(p)}
+                  className={`text-[10px] font-black px-2.5 py-1 rounded-full transition-all active:scale-95 border ${
+                    p.active
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+                      : "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                  }`}
+                  title="Clique para pausar ou reativar no cardápio"
+                >
+                  {p.active ? "✓ No Ar" : "⏸ Pausado"}
+                </button>
                 <button
                   onClick={() => handleDelete(p.id)}
                   className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
@@ -177,9 +198,17 @@ export default function CardapioAdminPage() {
                       {formatCurrency(p.costPrice || 0)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.active ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
-                        {p.active ? "Ativo" : "Pausado"}
-                      </span>
+                      <button
+                        onClick={() => handleToggleActive(p)}
+                        className={`text-[10px] font-black px-2.5 py-1 rounded-full transition-all active:scale-95 border ${
+                          p.active
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+                            : "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                        }`}
+                        title="Clique para pausar ou reativar"
+                      >
+                        {p.active ? "✓ No Ar" : "⏸ Pausado"}
+                      </button>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button

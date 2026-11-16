@@ -37,6 +37,14 @@ export default function CaixaPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [zones, setZones] = useState<any[]>([]);
+  const [selectedZone, setSelectedZone] = useState<any>(null);
+
+  // Modal de Personalização Rápida no Caixa
+  const [customizingProduct, setCustomizingProduct] = useState<any | null>(null);
+  const [selectedAddons, setSelectedAddons] = useState<any[]>([]);
+  const [quickNotes, setQuickNotes] = useState<string[]>([]);
+  const [customTextNote, setCustomTextNote] = useState("");
 
   // Status do caixa
   const [register, setRegister] = useState<any>(null);
@@ -93,16 +101,20 @@ export default function CaixaPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const [prodRes, cashRes] = await Promise.all([
+      const [prodRes, cashRes, setRes] = await Promise.all([
         fetch("/api/products?active=true"),
         fetch("/api/cash"),
+        fetch("/api/settings"),
       ]);
       const prodData = await prodRes.json();
       const cashData = await cashRes.json();
+      const setData = await setRes.json();
       const cats = prodData.categories || [];
       setCategories(cats);
       setProducts(prodData.products || []);
       setRegister(cashData.register);
+      setZones(setData.zones || []);
+      if (setData.zones?.[0]) setSelectedZone(setData.zones[0]);
       if (cats.length > 0) {
         setSelectedCategory(cats[0].id);
       }
@@ -142,10 +154,76 @@ export default function CaixaPage() {
     };
   }, [cart, register, orderType, paymentMethod, customerName, customerPhone, deliveryAddress, discount, amountReceived]);
 
-  // Adicionar produto ao carrinho
-  function addToCart(p: any) {
+  // Lista de Adicionais disponíveis
+  const availableAddons = products.filter(
+    (p) =>
+      categories.find((c) => c.id === p.categoryId)?.name === "Adicionais" ||
+      p.name.startsWith("Adicional:")
+  );
+
+  function openCustomizer(p: any) {
+    // Se for bebida ou sobremesa simples sem adicionais, adiciona direto
+    const catName = categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase() || "";
+    if (catName.includes("bebida") || catName.includes("refrigerante") || catName.includes("sobremesa")) {
+      addToCartDirect(p);
+      return;
+    }
+    setCustomizingProduct(p);
+    setSelectedAddons([]);
+    setQuickNotes([]);
+    setCustomTextNote("");
+  }
+
+  function toggleAddon(addon: any) {
+    setSelectedAddons((prev) => {
+      const exists = prev.some((a) => a.id === addon.id);
+      return exists ? prev.filter((a) => a.id !== addon.id) : [...prev, addon];
+    });
+  }
+
+  function toggleQuickNote(note: string) {
+    setQuickNotes((prev) => {
+      return prev.includes(note) ? prev.filter((n) => n !== note) : [...prev, note];
+    });
+  }
+
+  function confirmCustomizedProduct() {
+    if (!customizingProduct) return;
+
+    const addonsTotal = selectedAddons.reduce((acc, a) => acc + a.price, 0);
+    const itemTotalPrice = customizingProduct.price + addonsTotal;
+
+    const notesParts: string[] = [];
+    if (selectedAddons.length > 0) {
+      notesParts.push(`+ ${selectedAddons.map((a) => a.name.replace("Adicional: ", "")).join(", ")}`);
+    }
+    if (quickNotes.length > 0) {
+      notesParts.push(quickNotes.join(", "));
+    }
+    if (customTextNote.trim()) {
+      notesParts.push(customTextNote.trim());
+    }
+
+    const finalNotes = notesParts.join(" | ");
+
+    setCart((prev) => [
+      ...prev,
+      {
+        id: `${customizingProduct.id}-${Date.now()}`,
+        name: customizingProduct.name,
+        price: itemTotalPrice,
+        quantity: 1,
+        notes: finalNotes,
+      },
+    ]);
+
+    setCustomizingProduct(null);
+  }
+
+  // Adicionar produto direto ao carrinho
+  function addToCartDirect(p: any) {
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === p.id);
+      const existing = prev.find((item) => item.id === p.id && !item.notes);
       if (existing) {
         return prev.map((item) =>
           item.id === p.id ? { ...item, quantity: item.quantity + 1 } : item
@@ -154,7 +232,7 @@ export default function CaixaPage() {
       return [
         ...prev,
         {
-          id: p.id,
+          id: `${p.id}-${Date.now()}`,
           name: p.name,
           price: p.price,
           quantity: 1,
@@ -186,8 +264,9 @@ export default function CaixaPage() {
 
   // Cálculos do pedido
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const deliveryFee = orderType === "DELIVERY" && selectedZone ? selectedZone.fee : 0;
   const discountCents = parseCurrencyToCents(discount);
-  const total = Math.max(0, subtotal - discountCents);
+  const total = Math.max(0, subtotal + deliveryFee - discountCents);
 
   const receivedCents = parseCurrencyToCents(amountReceived);
   const changeDue = paymentMethod === "DINHEIRO" && receivedCents > total ? receivedCents - total : 0;
@@ -207,12 +286,13 @@ export default function CaixaPage() {
           customerName: customerName || undefined,
           customerPhone: customerPhone || undefined,
           deliveryAddress: deliveryAddress || undefined,
+          deliveryFee: deliveryFee,
           discount: discountCents,
           paymentMethod,
-          amountReceived: paymentMethod === "DINHEIRO" ? receivedCents : undefined,
+          amountReceived: paymentMethod === "DINHEIRO" && receivedCents > 0 ? receivedCents : undefined,
           notes: orderNotes || undefined,
           items: cart.map((i) => ({
-            productId: i.id,
+            productId: i.id.includes("-") ? i.id.split("-")[0] : i.id,
             productName: i.name,
             unitPrice: i.price,
             quantity: i.quantity,
@@ -253,8 +333,10 @@ export default function CaixaPage() {
         discount: data.order.discount,
         total: data.order.total,
         paymentMethod: data.order.paymentMethod,
+        amountReceived: data.order.amountReceived,
+        changeDue: data.order.changeDue,
         notes: data.order.notes,
-      }, "CUSTOMER");
+      }, data.order.type === "DELIVERY" ? "DELIVERY" : "CUSTOMER");
     } catch (e: any) {
       alert("Erro ao finalizar venda: " + e.message);
     }
@@ -406,21 +488,19 @@ export default function CaixaPage() {
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-2 sticky top-14 z-30 shadow-xs">
         <button
           onClick={() => setMobileTab("catalog")}
-          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-            mobileTab === "catalog"
+          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${mobileTab === "catalog"
               ? "bg-primary text-white shadow-xs"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
+            }`}
         >
           <span>🍔 Produtos / Lanches</span>
         </button>
         <button
           onClick={() => setMobileTab("cart")}
-          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-            mobileTab === "cart"
+          className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${mobileTab === "cart"
               ? "bg-primary text-white shadow-xs"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
+            }`}
         >
           <span>🛍️ Pedido ({cart.reduce((a, b) => a + b.quantity, 0)})</span>
           {cart.length > 0 && (
@@ -464,9 +544,8 @@ export default function CaixaPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
             <div className="flex items-center gap-3">
               <div
-                className={`p-2.5 rounded-xl ${
-                  register ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                }`}
+                className={`p-2.5 rounded-xl ${register ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                  }`}
               >
                 {register ? <Unlock size={20} /> : <Lock size={20} />}
               </div>
@@ -534,11 +613,10 @@ export default function CaixaPage() {
                 <button
                   key={c.id}
                   onClick={() => setSelectedCategory(c.id)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                    selectedCategory === c.id
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${selectedCategory === c.id
                       ? "bg-primary text-white shadow-sm"
                       : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {c.name}
                 </button>
@@ -551,7 +629,7 @@ export default function CaixaPage() {
             {filteredProducts.map((p) => (
               <button
                 key={p.id}
-                onClick={() => addToCart(p)}
+                onClick={() => openCustomizer(p)}
                 className="flex flex-col text-left p-3 bg-white rounded-2xl border border-gray-200/80 hover:border-red-300 hover:shadow-md transition-all active:scale-[0.98] group"
               >
                 {p.imageUrl ? (
@@ -649,11 +727,10 @@ export default function CaixaPage() {
                 <button
                   key={t}
                   onClick={() => setOrderType(t)}
-                  className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${
-                    orderType === t
+                  className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${orderType === t
                       ? "bg-primary text-white border-primary shadow-sm"
                       : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {t === "BALCAO" ? "Balcão" : t === "MESA" ? "Mesa" : t === "DELIVERY" ? "Entrega" : "Retirada"}
                 </button>
@@ -686,9 +763,28 @@ export default function CaixaPage() {
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   className="w-full text-xs px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-primary"
                 />
+                {zones.length > 0 && (
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Bairro / Taxa</label>
+                    <select
+                      value={selectedZone?.id || ""}
+                      onChange={(e) => {
+                        const z = zones.find((item) => item.id === e.target.value);
+                        setSelectedZone(z || null);
+                      }}
+                      className="w-full text-xs px-3 py-2 bg-white border border-gray-200 rounded-lg font-semibold focus:outline-none focus:border-primary mt-0.5"
+                    >
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.id}>
+                          {z.neighborhood} ({formatCurrency(z.fee)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <input
                   type="text"
-                  placeholder="Endereço de Entrega (Rua, Número, Bairro)"
+                  placeholder="Endereço de Entrega (Rua, Número, Ponto de Ref)"
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
                   className="w-full text-xs px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-primary"
@@ -702,11 +798,10 @@ export default function CaixaPage() {
                 <button
                   key={m}
                   onClick={() => setPaymentMethod(m)}
-                  className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${
-                    paymentMethod === m
+                  className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${paymentMethod === m
                       ? "bg-gray-900 text-white border-gray-900"
                       : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {m === "DINHEIRO" ? "Dinheiro" : m}
                 </button>
@@ -740,6 +835,18 @@ export default function CaixaPage() {
                 <span>Subtotal:</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
+              {orderType === "DELIVERY" && deliveryFee > 0 && (
+                <div className="flex justify-between text-gray-500">
+                  <span>Taxa Entrega ({selectedZone?.neighborhood || "Bairro"}):</span>
+                  <span>{formatCurrency(deliveryFee)}</span>
+                </div>
+              )}
+              {discountCents > 0 && (
+                <div className="flex justify-between text-emerald-600 font-bold">
+                  <span>Desconto:</span>
+                  <span>-{formatCurrency(discountCents)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-base font-black text-gray-900 pt-1">
                 <span>Total a Pagar:</span>
                 <span className="text-primary">{formatCurrency(total)}</span>
@@ -958,6 +1065,122 @@ export default function CaixaPage() {
               >
                 Confirmar Suprimento
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Personalização Rápida de Lanche */}
+      {customizingProduct && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase text-primary tracking-wider">Turbinar / Observações</span>
+                <h3 className="font-black text-xl text-gray-900">{customizingProduct.name}</h3>
+                <p className="text-xs text-gray-500 font-bold">{formatCurrency(customizingProduct.price)} (Preço base)</p>
+              </div>
+              <button
+                onClick={() => setCustomizingProduct(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Adicionais Pagos */}
+            {availableAddons.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-800 flex items-center justify-between">
+                  <span>Adicionais (Extras):</span>
+                  <span className="text-[11px] text-gray-400 font-medium">Opcional</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                  {availableAddons.map((add) => {
+                    const isSelected = selectedAddons.some((a) => a.id === add.id);
+                    return (
+                      <button
+                        key={add.id}
+                        type="button"
+                        onClick={() => toggleAddon(add)}
+                        className={`p-2 rounded-xl text-left border text-xs font-bold transition-all flex items-center justify-between ${isSelected
+                            ? "bg-red-50 text-primary border-primary shadow-xs ring-1 ring-primary/20"
+                            : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                          }`}
+                      >
+                        <span className="truncate pr-1">{add.name.replace("Adicional: ", "")}</span>
+                        <span className="text-[10px] whitespace-nowrap text-emerald-600 font-black">
+                          +{formatCurrency(add.price)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Botões Rápidos de Remoção */}
+            <div className="space-y-2">
+              <label className="text-xs font-black text-gray-800">Remover Ingredientes:</label>
+              <div className="flex flex-wrap gap-1.5">
+                {["Sem Cebola", "Sem Maionese", "Sem Salada", "Sem Tomate", "Sem Milho", "Bem Passado", "Mal Passado"].map(
+                  (note) => {
+                    const active = quickNotes.includes(note);
+                    return (
+                      <button
+                        key={note}
+                        type="button"
+                        onClick={() => toggleQuickNote(note)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${active
+                            ? "bg-red-600 text-white shadow-xs"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                      >
+                        {active ? `✓ ${note}` : note}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            </div>
+
+            {/* Observação Livre */}
+            <div>
+              <label className="text-xs font-black text-gray-800">Outra Observação:</label>
+              <input
+                type="text"
+                placeholder="Ex: caprichar no molho, cortar ao meio..."
+                value={customTextNote}
+                onChange={(e) => setCustomTextNote(e.target.value)}
+                className="w-full text-xs px-3.5 py-2.5 mt-1 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary focus:outline-none"
+              />
+            </div>
+
+            {/* Total do Item com Adicionais */}
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold block uppercase">Valor do Item</span>
+                <span className="text-lg font-black text-primary">
+                  {formatCurrency(
+                    customizingProduct.price + selectedAddons.reduce((acc, a) => acc + a.price, 0)
+                  )}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomizingProduct(null)}
+                  className="px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmCustomizedProduct}
+                  className="px-5 py-2.5 text-xs font-black text-white bg-primary hover:bg-primary-hover rounded-xl shadow-md shadow-red-200 active:scale-95 transition-all"
+                >
+                  Adicionar ao Pedido
+                </button>
+              </div>
             </div>
           </div>
         </div>

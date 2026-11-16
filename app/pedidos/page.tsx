@@ -91,7 +91,7 @@ export default function PedidosPage() {
     }
   }
 
-  function handlePrintOrder(order: any, target: "CUSTOMER" | "KITCHEN") {
+  function handlePrintOrder(order: any, target: "CUSTOMER" | "KITCHEN" | "DELIVERY") {
     printReceipt(
       {
         code: order.code,
@@ -112,6 +112,8 @@ export default function PedidosPage() {
         discount: order.discount,
         total: order.total,
         paymentMethod: order.paymentMethod,
+        amountReceived: order.amountReceived,
+        changeDue: order.changeDue,
         notes: order.notes,
       },
       target
@@ -292,17 +294,26 @@ export default function PedidosPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     onClick={() => handlePrintOrder(o, "CUSTOMER")}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold"
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold"
                   >
                     <Printer size={13} />
-                    <span>Via Cliente</span>
+                    <span>Via Balcão</span>
                   </button>
+                  {o.type === "DELIVERY" && (
+                    <button
+                      onClick={() => handlePrintOrder(o, "DELIVERY")}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold"
+                    >
+                      <Printer size={13} />
+                      <span>Delivery</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => handlePrintOrder(o, "KITCHEN")}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-xl text-xs font-bold"
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-800 rounded-xl text-xs font-bold"
                   >
                     <ChefHat size={13} />
                     <span>Cozinha</span>
@@ -375,10 +386,19 @@ export default function PedidosPage() {
                         <button
                           onClick={() => handlePrintOrder(o, "CUSTOMER")}
                           className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
-                          title="Reimprimir Via do Cliente / Entrega"
+                          title="Reimprimir Via do Balcão / Cliente"
                         >
                           <Printer size={15} />
                         </button>
+                        {o.type === "DELIVERY" && (
+                          <button
+                            onClick={() => handlePrintOrder(o, "DELIVERY")}
+                            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-all"
+                            title="Reimprimir Via do Entregador / Delivery"
+                          >
+                            <Printer size={15} />
+                          </button>
+                        )}
                         <button
                           onClick={() => handlePrintOrder(o, "KITCHEN")}
                           className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-all"

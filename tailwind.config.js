@@ -7,6 +7,11 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["'Plus Jakarta Sans'", "sans-serif"],
+        handwriting: ["'Caveat'", "cursive"],
+        serif: ["'Playfair Display'", "serif"],
+      },
       colors: {
         primary: {
           DEFAULT: "#e8192c",
@@ -17,6 +22,14 @@ module.exports = {
           500: "#e8192c",
           600: "#c81424",
           700: "#9f121d",
+        },
+        brand: {
+          dark: "#14110f",
+          darker: "#0d0b0a",
+          card: "#ffffff",
+          amber: "#f59e0b",
+          amberDark: "#d97706",
+          cream: "#faf7f2",
         },
       },
     },

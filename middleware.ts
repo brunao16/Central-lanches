@@ -3,7 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Rotas públicas que NUNCA exigem login
+  // Imagens e arquivos estáticos da pasta public NUNCA exigem login
+  const isStaticFile =
+    pathname.startsWith("/_next") ||
+    pathname.match(/\.(png|jpg|jpeg|webp|svg|ico|gif|woff2?|css|js|json|txt)$/i);
+
+  if (isStaticFile) {
+    return NextResponse.next();
+  }
+
+  // Rotas públicas de clientes e entregador
   const isPublicRoute =
     pathname === "/login" ||
     pathname.startsWith("/menu") ||
@@ -12,20 +21,27 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth/login") ||
     (pathname === "/api/orders" && req.method === "POST") ||
-    (pathname === "/api/orders" && req.method === "GET" && pathname.startsWith("/motoboy")) ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/favicon.svg" ||
-    pathname === "/manifest.json" ||
-    pathname === "/robots.txt";
+    (pathname === "/api/orders" && req.method === "GET" && pathname.startsWith("/motoboy"));
 
   if (isPublicRoute) {
     return NextResponse.next();
   }
 
-  // Checa se tem o cookie de autenticação do login
+  // Checa se tem o cookie de autenticação do login admin
   const authCookie = req.cookies.get("admin_session_auth")?.value;
-  if (authCookie === "central_authenticated_token_2026") {
+  const isAuthenticated = authCookie === "central_authenticated_token_2026";
+
+  // Se acessar a raiz "/", se não for admin logado, direciona para o Cardápio de Clientes
+  if (pathname === "/") {
+    if (isAuthenticated) {
+      return NextResponse.next();
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/menu";
+    return NextResponse.redirect(url);
+  }
+
+  if (isAuthenticated) {
     return NextResponse.next();
   }
 

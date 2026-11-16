@@ -135,12 +135,13 @@ export class OrderService {
     return order;
   }
 
-  static async updateStatus(orderId: string, status: string, cancelReason?: string) {
+  static async updateStatus(orderId: string, status: string, cancelReason?: string, deliveryDriver?: string) {
     return await prisma.order.update({
       where: { id: orderId },
       data: {
         status,
         cancelReason: cancelReason || undefined,
+        deliveryDriver: deliveryDriver || undefined,
       },
       include: {
         items: true,

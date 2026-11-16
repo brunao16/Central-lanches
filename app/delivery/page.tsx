@@ -9,6 +9,11 @@ import { Bike, Phone, MapPin, Send, CheckCircle2, Navigation, Printer } from "lu
 export default function DeliveryPage() {
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDriver, setSelectedDriver] = useState<{ [orderId: string]: string }>({});
+  const [settlementModal, setSettlementModal] = useState(false);
+
+  // Lista padrão de entregadores
+  const driverList = ["Carlos Motoboy", "Marcos Entrega", "Lucas Express", "Outro Entregador"];
 
   async function loadDeliveries() {
     try {
@@ -28,12 +33,12 @@ export default function DeliveryPage() {
     return () => clearInterval(interval);
   }, []);
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, driver?: string) {
     try {
       await fetch(`/api/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, deliveryDriver: driver }),
       });
       loadDeliveries();
     } catch (e) {
@@ -60,14 +65,16 @@ export default function DeliveryPage() {
       discount: order.discount,
       total: order.total,
       paymentMethod: order.paymentMethod,
+      amountReceived: order.amountReceived,
+      changeDue: order.changeDue,
       notes: order.notes,
-    }, "CUSTOMER");
+    }, "DELIVERY");
   }
 
   return (
     <AdminShell>
       <div className="p-4 md:p-6 space-y-4 max-w-7xl">
-        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-red-50 text-primary">
               <Bike size={22} />
@@ -79,6 +86,12 @@ export default function DeliveryPage() {
               <span className="text-xs text-gray-500">Roteamento GPS, mensagens e despacho de motoboys</span>
             </div>
           </div>
+          <button
+            onClick={() => setSettlementModal(true)}
+            className="px-4 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black hover:bg-gray-800 transition-all shadow-sm flex items-center justify-center gap-2"
+          >
+            <span>Acerto de Turno dos Motoboys</span>
+          </button>
         </div>
 
         {/* Lista de Pedidos Delivery */}
@@ -195,10 +208,44 @@ export default function DeliveryPage() {
                     </div>
                   )}
 
+                  {/* Atribuição de Motoboy */}
+                  <div className="bg-gray-50 p-2.5 rounded-xl space-y-1.5 border border-gray-100">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-gray-500">
+                      <span>Entregador / Motoboy:</span>
+                      {order.deliveryDriver && (
+                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-extrabold">
+                          {order.deliveryDriver}
+                        </span>
+                      )}
+                    </div>
+                    {order.status !== "ENTREGUE" && (
+                      <select
+                        value={selectedDriver[order.id] || order.deliveryDriver || ""}
+                        onChange={(e) =>
+                          setSelectedDriver((prev) => ({ ...prev, [order.id]: e.target.value }))
+                        }
+                        className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg font-bold text-gray-800 focus:outline-none focus:border-primary"
+                      >
+                        <option value="">Selecione o Motoboy...</option>
+                        {driverList.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     {order.status !== "SAIU_ENTREGA" && order.status !== "ENTREGUE" && (
                       <button
-                        onClick={() => updateStatus(order.id, "SAIU_ENTREGA")}
+                        onClick={() =>
+                          updateStatus(
+                            order.id,
+                            "SAIU_ENTREGA",
+                            selectedDriver[order.id] || order.deliveryDriver
+                          )
+                        }
                         className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
                       >
                         Despachar Motoboy
@@ -206,7 +253,13 @@ export default function DeliveryPage() {
                     )}
                     {order.status !== "ENTREGUE" && (
                       <button
-                        onClick={() => updateStatus(order.id, "ENTREGUE")}
+                        onClick={() =>
+                          updateStatus(
+                            order.id,
+                            "ENTREGUE",
+                            selectedDriver[order.id] || order.deliveryDriver
+                          )
+                        }
                         className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
                       >
                         Confirmar Entrega
@@ -224,6 +277,75 @@ export default function DeliveryPage() {
             </div>
           )}
         </div>
+        {/* Modal de Acerto de Turno dos Motoboys */}
+        {settlementModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-lg text-gray-900">Acerto de Contas dos Motoboys</h3>
+                  <p className="text-xs text-gray-500">Resumo de corridas e valores a repassar no turno</p>
+                </div>
+                <button
+                  onClick={() => setSettlementModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {driverList.map((driverName) => {
+                  const driverOrders = deliveries.filter(
+                    (o) => o.deliveryDriver === driverName && o.status === "ENTREGUE"
+                  );
+                  const totalFees = driverOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+                  const cashCollected = driverOrders
+                    .filter((o) => o.paymentMethod === "DINHEIRO")
+                    .reduce((acc, o) => acc + o.total, 0);
+
+                  return (
+                    <div
+                      key={driverName}
+                      className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200/80 space-y-2"
+                    >
+                      <div className="flex items-center justify-between font-black text-sm text-gray-900">
+                        <span>{driverName}</span>
+                        <span className="text-xs bg-white px-2.5 py-1 rounded-lg border border-gray-200">
+                          {driverOrders.length} corrida(s)
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div className="bg-white p-2 rounded-xl border border-gray-100">
+                          <span className="text-gray-400 block text-[10px] font-bold uppercase">Taxas a Pagar</span>
+                          <span className="font-extrabold text-blue-600 text-sm">
+                            {formatCurrency(totalFees)}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2 rounded-xl border border-gray-100">
+                          <span className="text-gray-400 block text-[10px] font-bold uppercase">Dinheiro na Mão</span>
+                          <span className="font-extrabold text-emerald-600 text-sm">
+                            {formatCurrency(cashCollected)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={() => setSettlementModal(false)}
+                  className="px-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all shadow-sm"
+                >
+                  Fechar Acerto
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminShell>
   );

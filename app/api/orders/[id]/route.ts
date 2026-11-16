@@ -5,6 +5,7 @@ import { z } from "zod";
 
 const updateStatusSchema = z.object({
   status: z.enum(["NOVO", "PREPARANDO", "PRONTO", "SAIU_ENTREGA", "ENTREGUE", "CANCELADO"]),
+  deliveryDriver: z.string().max(100).optional(),
   cancelReason: z.string().max(200).optional(),
 });
 
@@ -32,7 +33,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json();
     const validated = updateStatusSchema.parse(body);
 
-    const order = await OrderService.updateStatus(id, validated.status, validated.cancelReason);
+    const order = await OrderService.updateStatus(id, validated.status, validated.cancelReason, validated.deliveryDriver);
     return NextResponse.json({ success: true, order });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

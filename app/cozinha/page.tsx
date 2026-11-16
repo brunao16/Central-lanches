@@ -20,9 +20,25 @@ export default function CozinhaPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [kitchenTab, setKitchenTab] = useState<"ALL" | "NOVO" | "PREPARANDO" | "PRONTO">("ALL");
   const prevOrderCountRef = useRef<number>(0);
   const isFirstLoadRef = useRef(true);
+  const printedOrderIdsRef = useRef<Set<string>>(new Set());
+
+  // Carrega preferência de auto-impressão
+  useEffect(() => {
+    const saved = localStorage.getItem("central_lanches_autoprint_kitchen");
+    if (saved === "true") {
+      setAutoPrintEnabled(true);
+    }
+  }, []);
+
+  function toggleAutoPrint() {
+    const nextVal = !autoPrintEnabled;
+    setAutoPrintEnabled(nextVal);
+    localStorage.setItem("central_lanches_autoprint_kitchen", String(nextVal));
+  }
 
   async function fetchKitchenOrders() {
     try {
@@ -39,10 +55,30 @@ export default function CozinhaPage() {
         ...(d3.orders || []),
       ];
 
-      const novosCount = (d1.orders || []).length;
-      if (!isFirstLoadRef.current && soundEnabled && novosCount > prevOrderCountRef.current) {
-        playOrderSound();
+      const novos = d1.orders || [];
+      const novosCount = novos.length;
+
+      if (!isFirstLoadRef.current) {
+        if (soundEnabled && novosCount > prevOrderCountRef.current) {
+          playOrderSound();
+        }
+
+        // Impressão automática de pedidos novos que ainda não foram impressos
+        if (autoPrintEnabled) {
+          novos.forEach((order: any) => {
+            if (!printedOrderIdsRef.current.has(order.id)) {
+              printedOrderIdsRef.current.add(order.id);
+              handlePrintKitchen(order);
+            }
+          });
+        }
+      } else {
+        // Na primeira carga, registrar os já existentes para não imprimir pedidos antigos
+        novos.forEach((order: any) => {
+          printedOrderIdsRef.current.add(order.id);
+        });
       }
+
       isFirstLoadRef.current = false;
       prevOrderCountRef.current = novosCount;
 
@@ -58,7 +94,7 @@ export default function CozinhaPage() {
     fetchKitchenOrders();
     const interval = setInterval(fetchKitchenOrders, 5000);
     return () => clearInterval(interval);
-  }, [soundEnabled]);
+  }, [soundEnabled, autoPrintEnabled]);
 
   async function updateStatus(orderId: string, nextStatus: string) {
     try {
@@ -124,6 +160,18 @@ export default function CozinhaPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleAutoPrint}
+              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${
+                autoPrintEnabled
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-gray-100 text-gray-500 border-gray-200"
+              }`}
+              title="Imprimir comanda automaticamente ao chegar novos pedidos"
+            >
+              <Printer size={16} />
+              <span>{autoPrintEnabled ? "Auto-Imprimir: Ligado" : "Auto-Imprimir: Desligado"}</span>
+            </button>
             <button
               onClick={() => {
                 if (!soundEnabled) playOrderSound();
@@ -373,15 +421,42 @@ export default function CozinhaPage() {
                   </div>
 
                   <div className="text-xs text-gray-600">
-                    Aguardando entrega do motoboy ou chamada no balcão.
+                    {order.customerName ? `Cliente: ${order.customerName}` : "Pedido pronto para entrega ou balcão."}
+                    {order.customerPhone && (
+                      <div className="text-[11px] text-gray-500 font-semibold">{order.customerPhone}</div>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => updateStatus(order.id, "ENTREGUE")}
-                    className="w-full py-2.5 rounded-xl font-bold text-xs bg-gray-900 hover:bg-black text-white active:scale-95 transition-all"
-                  >
-                    Marcar como Entregue
-                  </button>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => handlePrintKitchen(order)}
+                      className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all"
+                      title="Reimprimir comanda"
+                    >
+                      <Printer size={16} />
+                    </button>
+
+                    {order.customerPhone ? (
+                      <a
+                        href={`https://wa.me/55${order.customerPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                          `Olá, ${order.customerName || "Cliente"}! 🛵 Seu pedido *#${order.code}* na *Central Lanches* acabou de ficar pronto e ${order.type === "DELIVERY" ? "saiu para entrega com o motoboy!" : "já pode ser retirado no balcão!"} Bom apetite!`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-1 active:scale-95 transition-all shadow-sm"
+                        title="Avisar cliente no WhatsApp"
+                      >
+                        <span>Avisar WhatsApp</span>
+                      </a>
+                    ) : null}
+
+                    <button
+                      onClick={() => updateStatus(order.id, "ENTREGUE")}
+                      className="flex-1 py-2.5 rounded-xl font-black text-xs bg-gray-900 hover:bg-black text-white active:scale-95 transition-all"
+                    >
+                      Concluir
+                    </button>
+                  </div>
                 </div>
               ))}
               {prontos.length === 0 && (
