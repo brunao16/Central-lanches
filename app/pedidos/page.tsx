@@ -267,8 +267,12 @@ export default function PedidosPage() {
             <div key={o.id} className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="font-black text-base text-gray-900">#{o.code}</span>
-                  <div className="text-[11px] text-gray-400 font-medium">{formatDateTime(o.createdAt)}</div>
+                  <div className="font-black text-base text-gray-900 leading-tight">
+                    {o.customerName || `Pedido #${o.code.replace(/^#+/, "")}`}
+                  </div>
+                  <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
+                    #{o.code.replace(/^#+/, "")} • {formatDateTime(o.createdAt)}
+                  </div>
                 </div>
                 <span
                   className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
@@ -285,8 +289,8 @@ export default function PedidosPage() {
 
               <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-100">
                 <div>
-                  <div className="font-bold text-gray-800">{o.customerName || "Balcão"}</div>
-                  <div className="text-gray-500">{o.type} {o.tableNumber ? `• Mesa #${o.tableNumber}` : ""} • {o.paymentMethod}</div>
+                  <div className="text-gray-600 font-medium">{o.type} {o.tableNumber ? `• Mesa #${o.tableNumber}` : ""} • {o.paymentMethod}</div>
+                  {o.customerPhone && <div className="text-[11px] text-gray-400 font-semibold">{o.customerPhone}</div>}
                 </div>
                 <div className="font-black text-base text-primary">
                   {formatCurrency(o.total)}
@@ -357,7 +361,9 @@ export default function PedidosPage() {
               <tbody className="divide-y divide-gray-100">
                 {filteredOrders.map((o) => (
                   <tr key={o.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="py-3 px-4 font-black text-gray-900">#{o.code}</td>
+                    <td className="py-3 px-4 font-black text-gray-900">
+                      <div>#{o.code.replace(/^#+/, "")}</div>
+                    </td>
                     <td className="py-3 px-4 text-xs text-gray-500">{formatDateTime(o.createdAt)}</td>
                     <td className="py-3 px-4 text-xs font-semibold text-gray-700">
                       {o.type} {o.tableNumber ? `#${o.tableNumber}` : ""}

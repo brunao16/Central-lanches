@@ -26,7 +26,7 @@ export class OrderService {
   private static async getNextOrderCode(): Promise<string> {
     const count = await prisma.order.count();
     const nextNum = 1000 + count + 1;
-    return `#${nextNum}`;
+    return `${nextNum}`;
   }
 
   static async createOrder(data: CreateOrderInput) {

@@ -569,11 +569,15 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-gray-900">{o.code}</span>
-                        <span className="text-[10px] text-gray-400 font-bold">{o.time}</span>
+                        <span className="text-xs font-black text-gray-900 block truncate max-w-[160px]">
+                          {o.customerName || `Pedido #${o.code.replace(/^#+/, "")}`}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-bold">
+                          #{o.code.replace(/^#+/, "")}
+                        </span>
                       </div>
-                      <span className="text-[11px] text-gray-600 font-medium block truncate max-w-[160px]">
-                        {o.customerName}
+                      <span className="text-[10px] text-gray-500 font-medium block">
+                        {o.time}
                       </span>
                     </div>
                   </div>

@@ -117,22 +117,27 @@ export default function DeliveryPage() {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-base text-gray-900">#{order.code}</span>
+                    <div>
+                      <div className="font-black text-base text-gray-900 leading-tight">
+                        {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
+                      </div>
+                      <div className="text-[11px] font-bold text-gray-400 mt-0.5">
+                        #{order.code.replace(/^#+/, "")}
+                      </div>
+                    </div>
                     <span
-                      className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                        order.status === "ENTREGUE"
+                      className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${order.status === "ENTREGUE"
                           ? "bg-emerald-100 text-emerald-800"
                           : order.status === "SAIU_ENTREGA"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-amber-100 text-amber-800"
-                      }`}
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
                     >
                       {order.status}
                     </span>
                   </div>
 
                   <div className="space-y-1.5 text-xs text-gray-600">
-                    <div className="font-bold text-gray-900 text-sm">{order.customerName || "Cliente Sem Nome"}</div>
                     {order.customerPhone && (
                       <div className="flex items-center gap-1.5 text-gray-500 font-semibold">
                         <Phone size={13} />

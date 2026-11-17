@@ -99,7 +99,14 @@ export default function MotoboyPage() {
               className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200/90 space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="font-black text-lg text-gray-900">#{order.code}</span>
+                <div>
+                  <div className="font-black text-lg text-gray-900 leading-tight">
+                    {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
+                  </div>
+                  <div className="text-xs font-bold text-gray-400 mt-0.5">
+                    #{order.code.replace(/^#+/, "")}
+                  </div>
+                </div>
                 <span
                   className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                     order.status === "SAIU_ENTREGA"
@@ -112,9 +119,6 @@ export default function MotoboyPage() {
               </div>
 
               <div className="space-y-1 text-xs">
-                <div className="font-bold text-gray-900 text-sm">
-                  {order.customerName || "Cliente Sem Nome"}
-                </div>
                 <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 font-medium text-gray-700">
                   📍 {order.deliveryAddress || "Endereço não informado"}
                 </div>

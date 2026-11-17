@@ -112,7 +112,7 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
   <div class="text-center">
     <div class="title">${headerTitle}</div>
     <div style="font-size: 8.5px; font-weight: bold;">${subheader}</div>
-    <div class="tag">PEDIDO #${order.code}</div>
+    <div class="tag">PEDIDO #${order.code.replace(/^#+/, "")}</div>
     <div style="font-size: 10.5px; font-weight: bold;">
       ${order.type === "MESA" ? `MESA ${order.tableNumber || "S/N"}` : order.type}
     </div>

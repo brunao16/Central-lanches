@@ -162,11 +162,10 @@ export default function CozinhaPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={toggleAutoPrint}
-              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${
-                autoPrintEnabled
+              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${autoPrintEnabled
                   ? "bg-blue-50 text-blue-700 border-blue-200"
                   : "bg-gray-100 text-gray-500 border-gray-200"
-              }`}
+                }`}
               title="Imprimir comanda automaticamente ao chegar novos pedidos"
             >
               <Printer size={16} />
@@ -177,11 +176,10 @@ export default function CozinhaPage() {
                 if (!soundEnabled) playOrderSound();
                 setSoundEnabled(!soundEnabled);
               }}
-              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${
-                soundEnabled
+              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${soundEnabled
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                   : "bg-gray-100 text-gray-500 border-gray-200"
-              }`}
+                }`}
               title="Ativar/Desativar alerta sonoro"
             >
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -201,41 +199,37 @@ export default function CozinhaPage() {
         <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setKitchenTab("ALL")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              kitchenTab === "ALL"
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "ALL"
                 ? "bg-gray-900 text-white shadow-xs"
                 : "bg-white text-gray-600 border border-gray-200"
-            }`}
+              }`}
           >
             Todos ({orders.length})
           </button>
           <button
             onClick={() => setKitchenTab("NOVO")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              kitchenTab === "NOVO"
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "NOVO"
                 ? "bg-amber-600 text-white shadow-xs"
                 : "bg-white text-amber-800 border border-amber-200"
-            }`}
+              }`}
           >
             🟡 Novos ({novos.length})
           </button>
           <button
             onClick={() => setKitchenTab("PREPARANDO")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              kitchenTab === "PREPARANDO"
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "PREPARANDO"
                 ? "bg-orange-600 text-white shadow-xs"
                 : "bg-white text-orange-800 border border-orange-200"
-            }`}
+              }`}
           >
             🔥 Preparando ({preparando.length})
           </button>
           <button
             onClick={() => setKitchenTab("PRONTO")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              kitchenTab === "PRONTO"
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "PRONTO"
                 ? "bg-emerald-600 text-white shadow-xs"
                 : "bg-white text-emerald-800 border border-emerald-200"
-            }`}
+              }`}
           >
             ✅ Prontos ({prontos.length})
           </button>
@@ -255,14 +249,20 @@ export default function CozinhaPage() {
               {novos.map((order) => (
                 <div
                   key={order.id}
-                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${
-                    isDelayed(order.createdAt)
+                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${isDelayed(order.createdAt)
                       ? "border-red-500 ring-2 ring-red-200 animate-pulse"
                       : "border-gray-200"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-lg text-gray-900">#{order.code}</span>
+                    <div>
+                      <div className="font-black text-lg text-gray-900 leading-tight">
+                        {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
+                      </div>
+                      <div className="text-xs font-bold text-gray-400 mt-0.5">
+                        #{order.code.replace(/^#+/, "")}
+                      </div>
+                    </div>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
                       {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
                     </span>
@@ -333,14 +333,20 @@ export default function CozinhaPage() {
               {preparando.map((order) => (
                 <div
                   key={order.id}
-                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${
-                    isDelayed(order.createdAt)
+                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${isDelayed(order.createdAt)
                       ? "border-red-500 ring-2 ring-red-200"
                       : "border-orange-200"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-lg text-gray-900">#{order.code}</span>
+                    <div>
+                      <div className="font-black text-lg text-gray-900 leading-tight">
+                        {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
+                      </div>
+                      <div className="text-xs font-bold text-orange-600 mt-0.5">
+                        #{order.code.replace(/^#+/, "")}
+                      </div>
+                    </div>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-orange-100 text-orange-800">
                       {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
                     </span>
@@ -414,7 +420,14 @@ export default function CozinhaPage() {
                   className="bg-white rounded-xl p-4 shadow-sm border border-emerald-200 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-lg text-gray-900">#{order.code}</span>
+                    <div>
+                      <div className="font-black text-lg text-gray-900 leading-tight">
+                        {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
+                      </div>
+                      <div className="text-xs font-bold text-emerald-600 mt-0.5">
+                        #{order.code.replace(/^#+/, "")}
+                      </div>
+                    </div>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800">
                       {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
                     </span>
