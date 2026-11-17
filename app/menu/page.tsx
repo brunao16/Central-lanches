@@ -108,6 +108,22 @@ export default function PublicMenuPage() {
     );
   }, [products, categories]);
 
+  // Produtos sugeridos para Upsell (Batatas e Bebidas)
+  const upsellProducts = useMemo(() => {
+    return products.filter((p) => {
+      const name = p.name.toLowerCase();
+      const cat = categories.find((c) => c.id === p.categoryId)?.name?.toLowerCase() || "";
+      const isSideOrDrink =
+        name.includes("batata") ||
+        name.includes("coca") ||
+        name.includes("guaraná") ||
+        name.includes("suco") ||
+        cat.includes("bebida") ||
+        cat.includes("porç");
+      return isSideOrDrink;
+    }).slice(0, 4);
+  }, [products, categories]);
+
   function showToast(msg: string) {
     setAddedToast(msg);
     setTimeout(() => setAddedToast(null), 2200);
@@ -853,6 +869,39 @@ export default function PublicMenuPage() {
                     </div>
                   );
                 })
+              )}
+
+              {/* Sugestões de Acompanhamento (Upsell) */}
+              {cartList.length > 0 && upsellProducts.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-[11px] font-black text-zinc-400 uppercase tracking-wide mb-2 flex items-center justify-between">
+                    <span>🍟 Que tal acompanhar?</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {upsellProducts.map((p) => {
+                      const alreadyInCart = cartList.some((c) => c.item.id === p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          className="p-2 rounded-xl bg-[#1a1c20] border border-zinc-800/80 flex items-center justify-between gap-1.5"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{p.name}</div>
+                            <div className="text-[11px] font-black text-red-500">{formatCurrency(p.price)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(p)}
+                            className="p-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-xs shrink-0 active:scale-95 transition-all shadow-xs"
+                            title="Adicionar ao pedido"
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {/* Cupom de Desconto */}

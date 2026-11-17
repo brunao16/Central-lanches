@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import AdminShell from "@/components/layout/AdminShell";
 import { formatTime } from "@/lib/utils";
 import { playOrderSound } from "@/lib/sound";
@@ -14,6 +14,7 @@ import {
   Printer,
   Volume2,
   VolumeX,
+  Flame,
 } from "lucide-react";
 
 export default function CozinhaPage() {
@@ -136,10 +137,45 @@ export default function CozinhaPage() {
   const preparando = orders.filter((o) => o.status === "PREPARANDO");
   const prontos = orders.filter((o) => o.status === "PRONTO");
 
-  function isDelayed(createdAt: string) {
-    const diffMin = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60);
-    return diffMin > 20; // mais de 20 minutos
+  function getOrderAge(createdAt: string) {
+    const diffMin = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60));
+    return diffMin;
   }
+
+  function getTimerBadge(createdAt: string) {
+    const mins = getOrderAge(createdAt);
+    if (mins >= 25) {
+      return {
+        bg: "bg-red-500 text-white animate-pulse shadow-sm shadow-red-200",
+        label: `🚨 ${mins} min (Atrasado)`,
+        border: "border-red-500 ring-2 ring-red-300",
+      };
+    }
+    if (mins >= 15) {
+      return {
+        bg: "bg-amber-500 text-white shadow-sm",
+        label: `⚠️ ${mins} min`,
+        border: "border-amber-400 ring-1 ring-amber-200",
+      };
+    }
+    return {
+      bg: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+      label: `⏱️ ${mins} min`,
+      border: "border-gray-200",
+    };
+  }
+
+  // Resumo da chapa (Itens agregados que estão em aberto)
+  const chapaSummary = useMemo(() => {
+    const openOrders = orders.filter((o) => o.status === "NOVO" || o.status === "PREPARANDO");
+    const counts: { [name: string]: number } = {};
+    openOrders.forEach((o) => {
+      (o.items || []).forEach((it: any) => {
+        counts[it.productName] = (counts[it.productName] || 0) + (it.quantity || 1);
+      });
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [orders]);
 
   return (
     <AdminShell>
@@ -195,6 +231,27 @@ export default function CozinhaPage() {
           </div>
         </div>
 
+        {/* Resumo da Demanda da Chapa */}
+        {chapaSummary.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex items-center gap-3 overflow-x-auto">
+            <div className="flex items-center gap-1.5 text-xs font-black text-amber-900 uppercase shrink-0">
+              <Flame size={16} className="text-amber-600" />
+              <span>Demanda Chapa:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {chapaSummary.map(([name, qty]) => (
+                <span
+                  key={name}
+                  className="px-2.5 py-1 bg-white border border-amber-200 text-gray-900 rounded-xl text-xs font-black shrink-0 shadow-2xs flex items-center gap-1"
+                >
+                  <strong className="text-red-600 font-black">{qty}x</strong>
+                  <span className="truncate max-w-[140px]">{name}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Seletor de Abas Mobile na Cozinha */}
         <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <button
@@ -246,73 +303,78 @@ export default function CozinhaPage() {
             </div>
 
             <div className="space-y-3">
-              {novos.map((order) => (
-                <div
-                  key={order.id}
-                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${isDelayed(order.createdAt)
-                      ? "border-red-500 ring-2 ring-red-200 animate-pulse"
-                      : "border-gray-200"
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-black text-lg text-gray-900 leading-tight">
-                        {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
-                      </div>
-                      <div className="text-xs font-bold text-gray-400 mt-0.5">
-                        #{order.code.replace(/^#+/, "")}
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
-                      {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                    <Clock size={14} />
-                    <span>Recebido às {formatTime(order.createdAt)}</span>
-                  </div>
-
-                  {/* Itens */}
-                  <div className="space-y-2 border-t border-b border-gray-100 py-2.5">
-                    {order.items?.map((it: any) => (
-                      <div key={it.id} className="text-sm">
-                        <div className="font-black text-gray-900 text-base">
-                          {it.quantity}x {it.productName}
+              {novos.map((order) => {
+                const timer = getTimerBadge(order.createdAt);
+                return (
+                  <div
+                    key={order.id}
+                    className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${timer.border}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-black text-lg text-gray-900 leading-tight">
+                          {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
                         </div>
-                        {it.notes && (
-                          <div className="text-xs text-red-900 font-black uppercase bg-red-100/90 border-2 border-red-500 px-2.5 py-1.5 rounded-lg mt-1 tracking-wide shadow-xs">
-                            ⚠️ OBS: {it.notes.toUpperCase()}
-                          </div>
-                        )}
+                        <div className="text-xs font-bold text-gray-400 mt-0.5">
+                          #{order.code.replace(/^#+/, "")}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {order.notes && (
-                    <div className="text-xs text-amber-950 font-black uppercase bg-amber-100 border-2 border-amber-500 p-2.5 rounded-xl tracking-wide shadow-xs">
-                      ⚠️ OBS GERAL: {order.notes.toUpperCase()}
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
+                        {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
+                      </span>
                     </div>
-                  )}
 
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => handlePrintKitchen(order)}
-                      className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all"
-                      title="Imprimir comanda de cozinha"
-                    >
-                      <Printer size={16} />
-                    </button>
-                    <button
-                      onClick={() => updateStatus(order.id, "PREPARANDO")}
-                      className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
-                    >
-                      <span>Iniciar Preparo</span>
-                      <ArrowRight size={14} />
-                    </button>
+                    <div className="flex items-center justify-between text-xs font-medium">
+                      <div className="flex items-center gap-1.5 text-gray-500">
+                        <Clock size={14} />
+                        <span>Recebido às {formatTime(order.createdAt)}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-md font-black text-[11px] ${timer.bg}`}>
+                        {timer.label}
+                      </span>
+                    </div>
+
+                    {/* Itens */}
+                    <div className="space-y-2 border-t border-b border-gray-100 py-2.5">
+                      {order.items?.map((it: any) => (
+                        <div key={it.id} className="text-sm">
+                          <div className="font-black text-gray-900 text-base">
+                            {it.quantity}x {it.productName}
+                          </div>
+                          {it.notes && (
+                            <div className="text-xs text-red-900 font-black uppercase bg-red-100/90 border-2 border-red-500 px-2.5 py-1.5 rounded-lg mt-1 tracking-wide shadow-xs">
+                              ⚠️ OBS: {it.notes.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {order.notes && (
+                      <div className="text-xs text-amber-950 font-black uppercase bg-amber-100 border-2 border-amber-500 p-2.5 rounded-xl tracking-wide shadow-xs">
+                        ⚠️ OBS GERAL: {order.notes.toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => handlePrintKitchen(order)}
+                        className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all"
+                        title="Imprimir comanda de cozinha"
+                      >
+                        <Printer size={16} />
+                      </button>
+                      <button
+                        onClick={() => updateStatus(order.id, "PREPARANDO")}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                      >
+                        <span>Iniciar Preparo</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {novos.length === 0 && (
                 <div className="p-8 text-center text-xs text-gray-400 font-medium">
                   Nenhum pedido aguardando
@@ -330,73 +392,78 @@ export default function CozinhaPage() {
             </div>
 
             <div className="space-y-3">
-              {preparando.map((order) => (
-                <div
-                  key={order.id}
-                  className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${isDelayed(order.createdAt)
-                      ? "border-red-500 ring-2 ring-red-200"
-                      : "border-orange-200"
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-black text-lg text-gray-900 leading-tight">
-                        {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
-                      </div>
-                      <div className="text-xs font-bold text-orange-600 mt-0.5">
-                        #{order.code.replace(/^#+/, "")}
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-orange-100 text-orange-800">
-                      {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                    <Clock size={14} />
-                    <span>Em preparo desde {formatTime(order.updatedAt)}</span>
-                  </div>
-
-                  {/* Itens */}
-                  <div className="space-y-2 border-t border-b border-gray-100 py-2.5">
-                    {order.items?.map((it: any) => (
-                      <div key={it.id} className="text-sm">
-                        <div className="font-black text-gray-900 text-base">
-                          {it.quantity}x {it.productName}
+              {preparando.map((order) => {
+                const timer = getTimerBadge(order.createdAt);
+                return (
+                  <div
+                    key={order.id}
+                    className={`bg-white rounded-xl p-4 shadow-sm border space-y-3 transition-all ${timer.border}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-black text-lg text-gray-900 leading-tight">
+                          {order.customerName || `Pedido #${order.code.replace(/^#+/, "")}`}
                         </div>
-                        {it.notes && (
-                          <div className="text-xs text-red-900 font-black uppercase bg-red-100/90 border-2 border-red-500 px-2.5 py-1.5 rounded-lg mt-1 tracking-wide shadow-xs">
-                            ⚠️ OBS: {it.notes.toUpperCase()}
-                          </div>
-                        )}
+                        <div className="text-xs font-bold text-orange-600 mt-0.5">
+                          #{order.code.replace(/^#+/, "")}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {order.notes && (
-                    <div className="text-xs text-amber-950 font-black uppercase bg-amber-100 border-2 border-amber-500 p-2.5 rounded-xl tracking-wide shadow-xs">
-                      ⚠️ OBS GERAL: {order.notes.toUpperCase()}
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-orange-100 text-orange-800">
+                        {order.type} {order.tableNumber ? `• MESA ${order.tableNumber}` : ""}
+                      </span>
                     </div>
-                  )}
 
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => handlePrintKitchen(order)}
-                      className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all"
-                      title="Imprimir comanda"
-                    >
-                      <Printer size={16} />
-                    </button>
-                    <button
-                      onClick={() => updateStatus(order.id, "PRONTO")}
-                      className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
-                    >
-                      <Check size={16} />
-                      <span>Concluir Preparo</span>
-                    </button>
+                    <div className="flex items-center justify-between text-xs font-medium">
+                      <div className="flex items-center gap-1.5 text-gray-500">
+                        <Clock size={14} />
+                        <span>Em preparo desde {formatTime(order.updatedAt)}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-md font-black text-[11px] ${timer.bg}`}>
+                        {timer.label}
+                      </span>
+                    </div>
+
+                    {/* Itens */}
+                    <div className="space-y-2 border-t border-b border-gray-100 py-2.5">
+                      {order.items?.map((it: any) => (
+                        <div key={it.id} className="text-sm">
+                          <div className="font-black text-gray-900 text-base">
+                            {it.quantity}x {it.productName}
+                          </div>
+                          {it.notes && (
+                            <div className="text-xs text-red-900 font-black uppercase bg-red-100/90 border-2 border-red-500 px-2.5 py-1.5 rounded-lg mt-1 tracking-wide shadow-xs">
+                              ⚠️ OBS: {it.notes.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {order.notes && (
+                      <div className="text-xs text-amber-950 font-black uppercase bg-amber-100 border-2 border-amber-500 p-2.5 rounded-xl tracking-wide shadow-xs">
+                        ⚠️ OBS GERAL: {order.notes.toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => handlePrintKitchen(order)}
+                        className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all"
+                        title="Imprimir comanda"
+                      >
+                        <Printer size={16} />
+                      </button>
+                      <button
+                        onClick={() => updateStatus(order.id, "PRONTO")}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                      >
+                        <Check size={16} />
+                        <span>Concluir Preparo</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {preparando.length === 0 && (
                 <div className="p-8 text-center text-xs text-gray-400 font-medium">
                   Cozinha liberada

@@ -11,6 +11,20 @@ export default function DeliveryPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDriver, setSelectedDriver] = useState<{ [orderId: string]: string }>({});
   const [settlementModal, setSettlementModal] = useState(false);
+  const [filterNeighborhood, setFilterNeighborhood] = useState("all");
+
+  // Lista de bairros extraídos dos endereços dos pedidos ativos
+  const neighborhoods = Array.from(
+    new Set(
+      deliveries
+        .map((d) => {
+          if (!d.deliveryAddress) return "";
+          const parts = d.deliveryAddress.split("-");
+          return parts.length > 1 ? parts[parts.length - 1].trim() : "";
+        })
+        .filter(Boolean)
+    )
+  );
 
   // Lista padrão de entregadores
   const driverList = ["Carlos Motoboy", "Marcos Entrega", "Lucas Express", "Outro Entregador"];
@@ -94,9 +108,47 @@ export default function DeliveryPage() {
           </button>
         </div>
 
+        {/* Filtro de Bairros para Agrupamento de Rota */}
+        {neighborhoods.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-xs font-black text-gray-500 uppercase shrink-0">Filtrar Rota / Bairro:</span>
+            <button
+              onClick={() => setFilterNeighborhood("all")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                filterNeighborhood === "all"
+                  ? "bg-gray-900 text-white shadow-xs"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              Todos ({deliveries.length})
+            </button>
+            {neighborhoods.map((n) => {
+              const count = deliveries.filter((d) => d.deliveryAddress?.includes(n)).length;
+              return (
+                <button
+                  key={n}
+                  onClick={() => setFilterNeighborhood(n)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                    filterNeighborhood === n
+                      ? "bg-red-600 text-white shadow-xs"
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <span>📍 {n}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filterNeighborhood === n ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Lista de Pedidos Delivery */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {deliveries.map((order) => {
+          {deliveries
+            .filter((o) => filterNeighborhood === "all" || o.deliveryAddress?.includes(filterNeighborhood))
+            .map((order) => {
             const mapsUrl = order.deliveryAddress
               ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`
               : "#";

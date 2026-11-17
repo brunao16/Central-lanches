@@ -63,7 +63,9 @@ export default function CaixaPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"DINHEIRO" | "PIX" | "DEBITO" | "CREDITO">("PIX");
+  const [paymentMethod, setPaymentMethod] = useState<"DINHEIRO" | "PIX" | "DEBITO" | "CREDITO" | "MISTO">("PIX");
+  const [splitCash, setSplitCash] = useState("");
+  const [splitPix, setSplitPix] = useState("");
   const [amountReceived, setAmountReceived] = useState("");
   const [discount, setDiscount] = useState("0,00");
   const [orderNotes, setOrderNotes] = useState("");
@@ -277,6 +279,10 @@ export default function CaixaPage() {
     if (!register) return alert("Abra o caixa antes de realizar vendas.");
 
     try {
+      const paymentNotes = paymentMethod === "MISTO" && (splitCash || splitPix)
+        ? `[PAGAMENTO MISTO: Dinheiro R$ ${splitCash || "0,00"} | Pix R$ ${splitPix || "0,00"}] ${orderNotes ? `| ${orderNotes}` : ""}`
+        : orderNotes || undefined;
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -290,7 +296,7 @@ export default function CaixaPage() {
           discount: discountCents,
           paymentMethod,
           amountReceived: paymentMethod === "DINHEIRO" && receivedCents > 0 ? receivedCents : undefined,
-          notes: orderNotes || undefined,
+          notes: paymentNotes,
           items: cart.map((i) => ({
             productId: i.id.includes("-") ? i.id.split("-")[0] : i.id,
             productName: i.name,
@@ -793,17 +799,17 @@ export default function CaixaPage() {
             )}
 
             {/* Pagamento */}
-            <div className="grid grid-cols-4 gap-1.5">
-              {(["PIX", "DINHEIRO", "DEBITO", "CREDITO"] as const).map((m) => (
+            <div className="grid grid-cols-5 gap-1">
+              {(["PIX", "DINHEIRO", "DEBITO", "CREDITO", "MISTO"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setPaymentMethod(m)}
-                  className={`py-1.5 text-[11px] font-bold rounded-lg border transition-all ${paymentMethod === m
-                      ? "bg-gray-900 text-white border-gray-900"
+                  className={`py-1.5 text-[10px] font-black rounded-lg border transition-all ${paymentMethod === m
+                      ? "bg-gray-900 text-white border-gray-900 shadow-xs"
                       : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100"
                     }`}
                 >
-                  {m === "DINHEIRO" ? "Dinheiro" : m}
+                  {m === "DINHEIRO" ? "Dinheiro" : m === "MISTO" ? "Misto" : m}
                 </button>
               ))}
             </div>
@@ -824,6 +830,36 @@ export default function CaixaPage() {
                   <label className="text-[10px] font-bold text-gray-500 uppercase">Troco</label>
                   <div className="text-xs font-black text-emerald-600 py-1.5">
                     {formatCurrency(changeDue)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {paymentMethod === "MISTO" && (
+              <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                <div className="text-[11px] font-black text-blue-900 uppercase">
+                  Divisão de Pagamento (Dinheiro + Pix)
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-600 block">Em Dinheiro (R$)</label>
+                    <input
+                      type="text"
+                      placeholder="0,00"
+                      value={splitCash}
+                      onChange={(e) => setSplitCash(e.target.value)}
+                      className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-600 block">No Pix / Cartão (R$)</label>
+                    <input
+                      type="text"
+                      placeholder="0,00"
+                      value={splitPix}
+                      onChange={(e) => setSplitPix(e.target.value)}
+                      className="w-full text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg font-bold"
+                    />
                   </div>
                 </div>
               </div>
