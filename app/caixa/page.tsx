@@ -72,8 +72,50 @@ export default function CaixaPage() {
   const [lastFinishedOrder, setLastFinishedOrder] = useState<any>(null);
   const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog");
   const [newOrdersAlert, setNewOrdersAlert] = useState<any[]>([]);
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
   const prevOrdersCountRef = useRef<number>(0);
   const isFirstLoadRef = useRef(true);
+  const printedOrderIdsRef = useRef<Set<string>>(new Set());
+
+  // Carrega preferência de auto-impressão no caixa
+  useEffect(() => {
+    const saved = localStorage.getItem("central_lanches_autoprint_caixa");
+    if (saved !== null) {
+      setAutoPrintEnabled(saved === "true");
+    }
+  }, []);
+
+  function toggleAutoPrint() {
+    const nextVal = !autoPrintEnabled;
+    setAutoPrintEnabled(nextVal);
+    localStorage.setItem("central_lanches_autoprint_caixa", String(nextVal));
+  }
+
+  function printIncomingOrder(order: any) {
+    printReceipt({
+      code: order.code,
+      type: order.type,
+      tableNumber: order.tableNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      deliveryAddress: order.deliveryAddress,
+      createdAt: order.createdAt,
+      items: (order.items || []).map((it: any) => ({
+        name: it.productName,
+        quantity: it.quantity,
+        price: it.unitPrice,
+        notes: it.notes,
+      })),
+      subtotal: order.subtotal || order.total,
+      deliveryFee: order.deliveryFee,
+      discount: order.discount,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+      amountReceived: order.amountReceived,
+      changeDue: order.changeDue,
+      notes: order.notes,
+    }, order.type === "DELIVERY" ? "DELIVERY" : "CUSTOMER");
+  }
 
   async function checkIncomingOrders() {
     try {
@@ -81,13 +123,31 @@ export default function CaixaPage() {
       const data = await res.json();
       const novos = data.orders || [];
 
-      if (!isFirstLoadRef.current && novos.length > prevOrdersCountRef.current) {
-        playContinuousAlertSound();
-        setNewOrdersAlert(novos);
-      } else if (novos.length === 0) {
-        stopContinuousAlertSound();
-        setNewOrdersAlert([]);
+      if (!isFirstLoadRef.current) {
+        if (novos.length > prevOrdersCountRef.current) {
+          playContinuousAlertSound();
+          setNewOrdersAlert(novos);
+
+          // Se auto-impressão estiver ativada, imprime os novos pedidos automaticamente
+          if (autoPrintEnabled) {
+            novos.forEach((order: any) => {
+              if (!printedOrderIdsRef.current.has(order.id)) {
+                printedOrderIdsRef.current.add(order.id);
+                printIncomingOrder(order);
+              }
+            });
+          }
+        } else if (novos.length === 0) {
+          stopContinuousAlertSound();
+          setNewOrdersAlert([]);
+        }
+      } else {
+        // Na primeira carga, registrar os já existentes para não imprimir pedidos antigos
+        novos.forEach((order: any) => {
+          printedOrderIdsRef.current.add(order.id);
+        });
       }
+
       isFirstLoadRef.current = false;
       prevOrdersCountRef.current = novos.length;
     } catch (e) {
@@ -564,6 +624,18 @@ export default function CaixaPage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={toggleAutoPrint}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border flex items-center gap-1.5 transition-all ${autoPrintEnabled
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : "bg-gray-100 text-gray-500 border-gray-200"
+                  }`}
+                title="Imprimir comanda automaticamente assim que o cliente fizer o pedido no cardápio online"
+              >
+                <Printer size={15} />
+                <span>{autoPrintEnabled ? "Auto-Imprimir: Ligado" : "Auto-Imprimir: Desligado"}</span>
+              </button>
+
               {register ? (
                 <>
                   <button
