@@ -636,6 +636,27 @@ export default function CaixaPage() {
                 <span>{autoPrintEnabled ? "Auto-Imprimir: Ligado" : "Auto-Imprimir: Desligado"}</span>
               </button>
 
+              <button
+                onClick={() => {
+                  printReceipt({
+                    code: "TESTE",
+                    type: "BALCAO",
+                    customerName: "Impressão de Teste",
+                    createdAt: new Date(),
+                    items: [
+                      { name: "Lanche Teste Kiosk", quantity: 1, price: 2500, notes: "Teste térmico" }
+                    ],
+                    subtotal: 2500,
+                    total: 2500,
+                    paymentMethod: "TESTE"
+                  }, "CUSTOMER");
+                }}
+                className="px-2.5 py-2 text-xs font-bold rounded-xl border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 active:scale-95 transition-all flex items-center gap-1"
+                title="Testar se a impressora responde imediatamente"
+              >
+                <span>🖨️ Testar Impressora</span>
+              </button>
+
               {register ? (
                 <>
                   <button

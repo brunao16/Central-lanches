@@ -240,6 +240,19 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
       doc.open();
       doc.write(html);
       doc.close();
+
+      // Disparo direto da janela do iframe garantido para modo Kiosk
+      setTimeout(() => {
+        try {
+          if (printIframe.contentWindow) {
+            printIframe.contentWindow.focus();
+            printIframe.contentWindow.print();
+          }
+        } catch (e) {
+          console.error("Erro no print do contentWindow:", e);
+        }
+      }, 300);
+
       return;
     }
   } catch (err) {
