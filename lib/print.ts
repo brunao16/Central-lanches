@@ -100,18 +100,25 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
     .bold { font-weight: bold; }
     .title { font-size: 11px; font-weight: bold; margin-bottom: 1px; }
     .divider { border-top: 1px dashed #000; margin: 3px 0; }
-    .tag { font-size: 13px; font-weight: 900; border: 1.5px solid #000; display: inline-block; padding: 2px 4px; margin: 2px 0; }
+    .client-header { font-size: 14px; font-weight: 900; text-transform: uppercase; border: 2px solid #000; padding: 3px 4px; margin: 2px 0 3px 0; text-align: center; background: #000; color: #fff; line-height: 1.2; word-break: break-word; }
+    .tag { font-size: 12px; font-weight: 900; border: 1.5px solid #000; display: inline-block; padding: 2px 5px; margin: 2px 0; }
     .item-row { display: flex; justify-content: space-between; align-items: flex-start; margin: 2px 0; }
     .item-name { flex: 1; padding-right: 2px; }
     .obs-item { font-size: 9px; font-weight: bold; text-transform: uppercase; background: #000; color: #fff; padding: 1px 2px; display: inline-block; margin-top: 1px; border-radius: 2px; }
     .badge-destaque { font-size: 10px; font-weight: bold; border: 1px solid #000; padding: 2px; margin: 2px 0; text-align: center; }
-    .box-endereco { border: 1px solid #000; padding: 3px; margin: 2px 0; font-size: 9.5px; }
+    .box-endereco { border: 1.5px solid #000; padding: 4px; margin: 3px 0; font-size: 10px; line-height: 1.25; background: #fff; }
   </style>
 </head>
 <body>
   <div class="text-center">
     <div class="title">${headerTitle}</div>
     <div style="font-size: 8.5px; font-weight: bold;">${subheader}</div>
+
+    <!-- NOME DO CLIENTE EM GRANDE DESTAQUE NO TOPO DE TODAS AS COMANDAS -->
+    <div class="client-header">
+      ${order.customerName ? order.customerName : "CLIENTE BALCAO"}
+    </div>
+
     <div class="tag">PEDIDO #${order.code.replace(/^#+/, "")}</div>
     <div style="font-size: 10.5px; font-weight: bold;">
       ${order.type === "MESA" ? `MESA ${order.tableNumber || "S/N"}` : order.type}
@@ -122,25 +129,25 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
   <div class="divider"></div>
 
   ${/* BLOCO DE DADOS DO CLIENTE / ENDEREÇO */ ""}
-  ${isKitchen
-      ? (order.tableNumber ? `<div class="bold text-center">LOCAL: MESA ${order.tableNumber}</div><div class="divider"></div>` : "")
-      : `
-      <div style="font-size: 9.5px; line-height: 1.2;">
-        ${order.customerName ? `<div><b>Cliente:</b> ${order.customerName}</div>` : ""}
-        ${order.customerPhone ? `<div><b>Tel:</b> ${order.customerPhone}</div>` : ""}
-      </div>
-      ${order.deliveryAddress
-        ? `
-          <div class="box-endereco">
-            <b>ENTREGA:</b><br/>
-            ${order.deliveryAddress}
-          </div>
-        `
-        : ""
-      }
-      <div class="divider"></div>
-    `
+  ${order.type === "MESA" && order.tableNumber
+      ? `<div class="bold text-center">LOCAL: MESA ${order.tableNumber}</div><div class="divider"></div>`
+      : ""
     }
+  
+  <div style="font-size: 9.5px; line-height: 1.2;">
+    ${order.customerPhone ? `<div><b>WhatsApp / Tel:</b> ${order.customerPhone}</div>` : ""}
+  </div>
+
+  ${order.deliveryAddress
+      ? `
+      <div class="box-endereco">
+        <b>📍 ENDEREÇO DE ENTREGA:</b><br/>
+        <span style="font-size: 10.5px; font-weight: bold;">${order.deliveryAddress}</span>
+      </div>
+    `
+      : ""
+    }
+  <div class="divider"></div>
 
   ${/* LISTA DE ITENS */ ""}
   <div class="bold" style="font-size: 10.5px; margin-bottom: 2px;">
