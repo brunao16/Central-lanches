@@ -12,16 +12,15 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Rotas públicas de clientes e entregador
+  // Rotas públicas de clientes e entregador (motoboy tem acesso liberado sem login no celular)
   const isPublicRoute =
     pathname === "/login" ||
     pathname.startsWith("/menu") ||
     pathname.startsWith("/pedido") ||
-    pathname === "/motoboy" ||
+    pathname.startsWith("/motoboy") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth/login") ||
-    (pathname === "/api/orders" && req.method === "POST") ||
-    (pathname === "/api/orders" && req.method === "GET" && pathname.startsWith("/motoboy"));
+    pathname.startsWith("/api/orders");
 
   if (isPublicRoute) {
     return NextResponse.next();
