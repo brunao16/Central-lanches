@@ -119,22 +119,25 @@ export default function CaixaPage() {
 
   async function checkIncomingOrders() {
     try {
-      const res = await fetch("/api/orders?status=NOVO&limit=10");
+      const res = await fetch(`/api/orders?status=NOVO&limit=20&t=${Date.now()}`, {
+        cache: "no-store",
+      });
       const data = await res.json();
       const novos = data.orders || [];
 
       if (!isFirstLoadRef.current) {
-        if (novos.length > prevOrdersCountRef.current) {
+        // Encontra novos pedidos que ainda não foram registrados
+        const unprintedOrders = novos.filter((o: any) => !printedOrderIdsRef.current.has(o.id));
+
+        if (unprintedOrders.length > 0) {
           playContinuousAlertSound();
           setNewOrdersAlert(novos);
 
-          // Se auto-impressão estiver ativada, imprime os novos pedidos automaticamente
+          // Se auto-impressão estiver ativada, imprime cada um imediatamente
           if (autoPrintEnabled) {
-            novos.forEach((order: any) => {
-              if (!printedOrderIdsRef.current.has(order.id)) {
-                printedOrderIdsRef.current.add(order.id);
-                printIncomingOrder(order);
-              }
+            unprintedOrders.forEach((order: any) => {
+              printedOrderIdsRef.current.add(order.id);
+              printIncomingOrder(order);
             });
           }
         } else if (novos.length === 0) {

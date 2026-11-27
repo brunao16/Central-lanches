@@ -43,11 +43,11 @@ export default function CozinhaPage() {
 
   async function fetchKitchenOrders() {
     try {
-      const res = await fetch("/api/orders?status=NOVO&limit=50");
+      const res = await fetch(`/api/orders?status=NOVO&limit=50&t=${Date.now()}`, { cache: "no-store" });
       const d1 = await res.json();
-      const res2 = await fetch("/api/orders?status=PREPARANDO&limit=50");
+      const res2 = await fetch(`/api/orders?status=PREPARANDO&limit=50&t=${Date.now()}`, { cache: "no-store" });
       const d2 = await res2.json();
-      const res3 = await fetch("/api/orders?status=PRONTO&limit=20");
+      const res3 = await fetch(`/api/orders?status=PRONTO&limit=20&t=${Date.now()}`, { cache: "no-store" });
       const d3 = await res3.json();
 
       const combined = [
@@ -57,21 +57,21 @@ export default function CozinhaPage() {
       ];
 
       const novos = d1.orders || [];
-      const novosCount = novos.length;
+      const unprintedOrders = novos.filter((o: any) => !printedOrderIdsRef.current.has(o.id));
 
       if (!isFirstLoadRef.current) {
-        if (soundEnabled && novosCount > prevOrderCountRef.current) {
-          playOrderSound();
-        }
+        if (unprintedOrders.length > 0) {
+          if (soundEnabled) {
+            playOrderSound();
+          }
 
-        // Impressão automática de pedidos novos que ainda não foram impressos
-        if (autoPrintEnabled) {
-          novos.forEach((order: any) => {
-            if (!printedOrderIdsRef.current.has(order.id)) {
+          // Impressão automática de pedidos novos que ainda não foram impressos
+          if (autoPrintEnabled) {
+            unprintedOrders.forEach((order: any) => {
               printedOrderIdsRef.current.add(order.id);
               handlePrintKitchen(order);
-            }
-          });
+            });
+          }
         }
       } else {
         // Na primeira carga, registrar os já existentes para não imprimir pedidos antigos
@@ -81,7 +81,7 @@ export default function CozinhaPage() {
       }
 
       isFirstLoadRef.current = false;
-      prevOrderCountRef.current = novosCount;
+      prevOrderCountRef.current = novos.length;
 
       setOrders(combined);
     } catch (e) {
@@ -199,8 +199,8 @@ export default function CozinhaPage() {
             <button
               onClick={toggleAutoPrint}
               className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${autoPrintEnabled
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-gray-100 text-gray-500 border-gray-200"
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : "bg-gray-100 text-gray-500 border-gray-200"
                 }`}
               title="Imprimir comanda automaticamente ao chegar novos pedidos"
             >
@@ -213,8 +213,8 @@ export default function CozinhaPage() {
                 setSoundEnabled(!soundEnabled);
               }}
               className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${soundEnabled
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-gray-100 text-gray-500 border-gray-200"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-gray-100 text-gray-500 border-gray-200"
                 }`}
               title="Ativar/Desativar alerta sonoro"
             >
@@ -257,8 +257,8 @@ export default function CozinhaPage() {
           <button
             onClick={() => setKitchenTab("ALL")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "ALL"
-                ? "bg-gray-900 text-white shadow-xs"
-                : "bg-white text-gray-600 border border-gray-200"
+              ? "bg-gray-900 text-white shadow-xs"
+              : "bg-white text-gray-600 border border-gray-200"
               }`}
           >
             Todos ({orders.length})
@@ -266,8 +266,8 @@ export default function CozinhaPage() {
           <button
             onClick={() => setKitchenTab("NOVO")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "NOVO"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "bg-white text-amber-800 border border-amber-200"
+              ? "bg-amber-600 text-white shadow-xs"
+              : "bg-white text-amber-800 border border-amber-200"
               }`}
           >
             🟡 Novos ({novos.length})
@@ -275,8 +275,8 @@ export default function CozinhaPage() {
           <button
             onClick={() => setKitchenTab("PREPARANDO")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "PREPARANDO"
-                ? "bg-orange-600 text-white shadow-xs"
-                : "bg-white text-orange-800 border border-orange-200"
+              ? "bg-orange-600 text-white shadow-xs"
+              : "bg-white text-orange-800 border border-orange-200"
               }`}
           >
             🔥 Preparando ({preparando.length})
@@ -284,8 +284,8 @@ export default function CozinhaPage() {
           <button
             onClick={() => setKitchenTab("PRONTO")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${kitchenTab === "PRONTO"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-white text-emerald-800 border border-emerald-200"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-white text-emerald-800 border border-emerald-200"
               }`}
           >
             ✅ Prontos ({prontos.length})

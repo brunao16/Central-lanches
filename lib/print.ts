@@ -122,27 +122,25 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
   <div class="divider"></div>
 
   ${/* BLOCO DE DADOS DO CLIENTE / ENDEREÇO */ ""}
-  ${
-    isKitchen
+  ${isKitchen
       ? (order.tableNumber ? `<div class="bold text-center">LOCAL: MESA ${order.tableNumber}</div><div class="divider"></div>` : "")
       : `
       <div style="font-size: 9.5px; line-height: 1.2;">
         ${order.customerName ? `<div><b>Cliente:</b> ${order.customerName}</div>` : ""}
         ${order.customerPhone ? `<div><b>Tel:</b> ${order.customerPhone}</div>` : ""}
       </div>
-      ${
-        order.deliveryAddress
-          ? `
+      ${order.deliveryAddress
+        ? `
           <div class="box-endereco">
             <b>ENTREGA:</b><br/>
             ${order.deliveryAddress}
           </div>
         `
-          : ""
+        : ""
       }
       <div class="divider"></div>
     `
-  }
+    }
 
   ${/* LISTA DE ITENS */ ""}
   <div class="bold" style="font-size: 10.5px; margin-bottom: 2px;">
@@ -150,43 +148,39 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
   </div>
 
   ${order.items
-    .map(
-      (it) => `
+      .map(
+        (it) => `
     <div class="item-row" style="font-size: ${isKitchen ? "10.5px" : "10px"};">
       <div class="item-name">
         <b style="font-size: 11px;">${it.quantity}x</b> ${it.name}
       </div>
       ${!isKitchen ? `<div class="bold">${formatCurrency(it.price * it.quantity)}</div>` : ""}
     </div>
-    ${
-      it.notes
-        ? `<div style="margin-bottom: 2px;"><span class="obs-item">⚠️ OBS: ${it.notes}</span></div>`
-        : ""
-    }
+    ${it.notes
+            ? `<div style="margin-bottom: 2px;"><span class="obs-item">⚠️ OBS: ${it.notes}</span></div>`
+            : ""
+          }
   `
-    )
-    .join("")}
+      )
+      .join("")}
 
-  ${
-    order.notes
+  ${order.notes
       ? `
     <div class="divider"></div>
     <div class="badge-destaque">OBS GERAL: ${order.notes}</div>
   `
       : ""
-  }
+    }
 
   ${/* BLOCO FINANCEIRO (SOMENTE FORA DA COZINHA) */ ""}
-  ${
-    !isKitchen
+  ${!isKitchen
       ? `
     <div class="divider"></div>
     <div class="item-row" style="font-size: 9.5px;">
       <span>Subtotal:</span>
       <span>${formatCurrency(order.subtotal)}</span>
     </div>
-    ${
-      order.deliveryFee
+    ${order.deliveryFee
         ? `
       <div class="item-row" style="font-size: 9.5px;">
         <span>Taxa Entrega:</span>
@@ -194,9 +188,8 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
       </div>
     `
         : ""
-    }
-    ${
-      order.discount
+      }
+    ${order.discount
         ? `
       <div class="item-row" style="font-size: 9.5px;">
         <span>Desconto:</span>
@@ -204,7 +197,7 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
       </div>
     `
         : ""
-    }
+      }
     <div class="item-row bold" style="font-size: 11.5px; margin-top: 2px;">
       <span>TOTAL:</span>
       <span>${formatCurrency(order.total)}</span>
@@ -220,7 +213,7 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
     <div class="divider"></div>
     <div class="text-center bold" style="font-size: 9px;">*** FIM DA COMANDA ***</div>
   `
-  }
+    }
   
   <script>
     window.onload = function() {
@@ -240,19 +233,6 @@ export function printReceipt(order: PrintOrderData, target: PrintTarget = "CUSTO
       doc.open();
       doc.write(html);
       doc.close();
-
-      // Disparo direto da janela do iframe garantido para modo Kiosk
-      setTimeout(() => {
-        try {
-          if (printIframe.contentWindow) {
-            printIframe.contentWindow.focus();
-            printIframe.contentWindow.print();
-          }
-        } catch (e) {
-          console.error("Erro no print do contentWindow:", e);
-        }
-      }, 300);
-
       return;
     }
   } catch (err) {
@@ -346,15 +326,15 @@ export function printRegisterCloseReceipt(data: PrintRegisterCloseData) {
 
   <div class="bold">RECEBIMENTO POR FORMA:</div>
   ${Object.entries(data.payments)
-    .map(
-      ([method, total]) => `
+      .map(
+        ([method, total]) => `
     <div class="item-row">
       <span>${method}:</span>
       <span>${formatCurrency(total)}</span>
     </div>
   `
-    )
-    .join("")}
+      )
+      .join("")}
 
   <div class="divider"></div>
 
