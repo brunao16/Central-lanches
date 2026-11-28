@@ -85,7 +85,7 @@ export default function PublicMenuPage() {
       if (savedName) setCustomerName(savedName);
       if (savedPhone) setCustomerPhone(savedPhone);
       if (savedAddress) setDeliveryAddress(savedAddress);
-    } catch (e) {}
+    } catch (e) { }
 
     fetch("/api/public/menu")
       .then((r) => r.json())
@@ -277,7 +277,7 @@ export default function PublicMenuPage() {
       localStorage.setItem("cl_customer_name", customerName);
       localStorage.setItem("cl_customer_phone", customerPhone);
       if (deliveryAddress) localStorage.setItem("cl_customer_address", deliveryAddress);
-    } catch (e) {}
+    } catch (e) { }
 
     setSubmitting(true);
     try {
@@ -533,11 +533,10 @@ export default function PublicMenuPage() {
                       const el = document.getElementById(`cat-${c.id}`);
                       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
                     }}
-                    className={`px-4 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all ${
-                      isActive
+                    className={`px-4 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all ${isActive
                         ? "bg-red-600 text-white shadow-md shadow-red-600/30"
                         : "bg-[#1b1e22] text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800"
-                    }`}
+                      }`}
                   >
                     {c.name}
                   </button>
@@ -706,11 +705,10 @@ export default function PublicMenuPage() {
                         key={tag}
                         type="button"
                         onClick={() => toggleQuickTag(tag)}
-                        className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
-                          active
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${active
                             ? "bg-red-600 text-white shadow-xs"
                             : "bg-[#1b1e22] text-zinc-400 hover:bg-zinc-800 border border-zinc-800"
-                        }`}
+                          }`}
                       >
                         {active ? `✕ ${tag}` : tag}
                       </button>
@@ -733,11 +731,10 @@ export default function PublicMenuPage() {
                           key={addon.id}
                           type="button"
                           onClick={() => toggleAddon(addon)}
-                          className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
-                            selected
+                          className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between ${selected
                               ? "bg-red-950/40 border-red-500 text-white font-bold"
                               : "bg-[#1b1e22] border-zinc-800 text-zinc-300 hover:bg-zinc-800"
-                          }`}
+                            }`}
                         >
                           <span className="text-xs truncate">
                             {selected ? "✓ " : "+ "}
@@ -796,7 +793,7 @@ export default function PublicMenuPage() {
                   {formatCurrency(
                     (customizingProduct.price +
                       selectedAddons.reduce((sum, a) => sum + a.price, 0)) *
-                      itemQuantity
+                    itemQuantity
                   )}
                 </span>
               </button>
@@ -891,7 +888,7 @@ export default function PublicMenuPage() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => addToCart(p)}
+                            onClick={() => quickAdd(p)}
                             className="p-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-xs shrink-0 active:scale-95 transition-all shadow-xs"
                             title="Adicionar ao pedido"
                           >
@@ -944,33 +941,30 @@ export default function PublicMenuPage() {
                   <button
                     type="button"
                     onClick={() => setOrderType("DELIVERY")}
-                    className={`py-1.5 rounded-lg font-black transition-all ${
-                      orderType === "DELIVERY"
+                    className={`py-1.5 rounded-lg font-black transition-all ${orderType === "DELIVERY"
                         ? "bg-red-600 text-white shadow-xs"
                         : "text-zinc-400 hover:text-white"
-                    }`}
+                      }`}
                   >
                     Entrega
                   </button>
                   <button
                     type="button"
                     onClick={() => setOrderType("RETIRADA")}
-                    className={`py-1.5 rounded-lg font-black transition-all ${
-                      orderType === "RETIRADA"
+                    className={`py-1.5 rounded-lg font-black transition-all ${orderType === "RETIRADA"
                         ? "bg-red-600 text-white shadow-xs"
                         : "text-zinc-400 hover:text-white"
-                    }`}
+                      }`}
                   >
                     Retirada
                   </button>
                   <button
                     type="button"
                     onClick={() => setOrderType("MESA")}
-                    className={`py-1.5 rounded-lg font-black transition-all ${
-                      orderType === "MESA"
+                    className={`py-1.5 rounded-lg font-black transition-all ${orderType === "MESA"
                         ? "bg-red-600 text-white shadow-xs"
                         : "text-zinc-400 hover:text-white"
-                    }`}
+                      }`}
                   >
                     Mesa
                   </button>
@@ -1027,11 +1021,10 @@ export default function PublicMenuPage() {
                         key={m}
                         type="button"
                         onClick={() => setPaymentMethod(m)}
-                        className={`py-1.5 px-2 rounded-xl text-[11px] font-black border transition-all ${
-                          paymentMethod === m
+                        className={`py-1.5 px-2 rounded-xl text-[11px] font-black border transition-all ${paymentMethod === m
                             ? "bg-red-600 text-white border-red-600"
                             : "bg-[#1b1e22] text-zinc-400 border-zinc-800 hover:text-white"
-                        }`}
+                          }`}
                       >
                         {m === "DINHEIRO" ? "Dinheiro" : m === "DEBITO" ? "Débito" : m === "CREDITO" ? "Crédito" : "Pix"}
                       </button>

@@ -117,19 +117,25 @@ export default function CozinhaPage() {
         type: order.type,
         tableNumber: order.tableNumber,
         customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        deliveryAddress: order.deliveryAddress,
         createdAt: order.createdAt,
-        items: order.items.map((it: any) => ({
+        items: (order.items || []).map((it: any) => ({
           name: it.productName,
           quantity: it.quantity,
           price: it.unitPrice,
           notes: it.notes,
         })),
-        subtotal: order.total,
+        subtotal: order.subtotal || order.total,
+        deliveryFee: order.deliveryFee,
+        discount: order.discount,
         total: order.total,
         paymentMethod: order.paymentMethod,
+        amountReceived: order.amountReceived,
+        changeDue: order.changeDue,
         notes: order.notes,
       },
-      "KITCHEN"
+      "DELIVERY"
     );
   }
 
